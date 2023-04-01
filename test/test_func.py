@@ -38,3 +38,27 @@ class TestPrimitiveGaussian:
         PG2.x = x2
         integral = PrimitiveGaussian.kinetic_int(PG1,PG2)
         assert True
+
+    def test_electron_proton_int(self):
+        alpha = pi/2
+        PG1 = PrimitiveGaussian(alpha=alpha)
+        PG2 = PrimitiveGaussian(alpha=alpha)
+        x1 = np.array([5.0, 0.0])
+        x2 = np.array([0.0, 0.0])
+        PG1.x = x1
+        PG2.x = x2
+        Xp = np.array([0.0,34.0])
+        integral = PrimitiveGaussian.electron_proton_int(PG1,PG2,Xp)
+        assert True
+
+    def test_electron_electron_int(self):
+        alpha = pi/2
+        PG1 = PrimitiveGaussian(alpha=alpha)
+        PG2 = PrimitiveGaussian(alpha=alpha)
+        x1 = np.array([5.0, 0.0])
+        x2 = np.array([0.0, 0.0])
+        PG1.x = x1
+        PG2.x = x2
+        Xp = np.array([0.0,34.0])
+        integral = PrimitiveGaussian.electron_electron_int(PG1,PG2,PG1,PG2)
+        assert True
