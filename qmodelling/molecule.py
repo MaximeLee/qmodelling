@@ -1,3 +1,5 @@
+from copy import deepcopy as dcp
+
 class Atom:
     """Atom class
     Z       : atomic number
@@ -6,8 +8,11 @@ class Atom:
     """
     def __init__(self,Z,x,orbital):
         self.Z = Z
-        self.orbital = orbital
-        self.orbital.x = x
+        self.orbital = dcp(orbital)
+        self.nbasis = len(orbital.basis)
+        self.x = x
+        for b in self.orbital.basis:
+            b.x = x
 
 class Molecule:
     def __init__(self,atoms):

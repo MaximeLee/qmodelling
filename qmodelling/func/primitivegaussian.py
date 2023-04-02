@@ -56,26 +56,27 @@ class PrimitiveGaussian(Basis):
         a3 = basis3.alpha
         a4 = basis4.alpha
 
-        a14  = a1 * a4
-        ap14 = a1 + a4
-        x14 = x1 - x4 
-        x14_2 = np.inner(x14,x14)
-        e14 = m.exp(-a14/ap14*x14_2)
+        a12  = a1 * a2
+        ap12 = a1 + a2
+        x12 = x1 - x2 
+        x12_2 = np.inner(x12,x12)
+        e12 = m.exp(-a12/ap12*x12_2)
         
-        a23  = a2 * a3
-        ap23 = a2 + a3
-        x23 = x2 - x3 
-        x23_2 = np.inner(x23,x23)
-        e23 = m.exp(-a23/ap23*x23_2)
+        a43  = a4 * a3
+        ap43 = a4 + a3
+        x43 = x4 - x3 
+        x43_2 = np.inner(x43,x43)
+        e43 = m.exp(-a43/ap43*x43_2)
 
-        ap1234 = a14 + a23
+        ap1234 = ap12 + ap43
         
-        x23_mean = (a2*x2+a3*x3)/(a2+a3)
-        x14_mean = (a1*x1+a4*x4)/(a1+a4)
-        x23_14 = x23_mean - x14_mean
-        Q2 = np.inner(x23_14,x23_14)
+        x43_mean = (a4*x4+a3*x3)/(ap43)
+        x12_mean = (a1*x1+a2*x2)/(ap12)
+        x12_43 = x12_mean - x43_mean
+        Q2 = np.inner(x12_43,x12_43)
 
-        return A1234*e14*e23*2.0*pi**2*m.sqrt(pi/ap1234)*boys(a23*a14/ap1234*Q2,0)
+        # return A1234*e14*e23*2.0*pi**2/(ap23+ap14)*m.sqrt(pi/ap1234)*boys(ap23*ap14/ap1234*Q2,0)
+        return A1234*2.0*pi**2/(ap12*ap43)*e43*e12*m.sqrt(pi/ap1234)*boys((ap43*ap12/ap1234)*Q2,0)
 
 
     @classmethod
