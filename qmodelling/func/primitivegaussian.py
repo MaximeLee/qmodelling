@@ -24,6 +24,12 @@ class PrimitiveGaussian(Basis):
         # normalizing constant
         self.A     = ( 2.0 * alpha / pi ) ** 0.75 
 
+    def __call__(self,x):
+        A = self.A
+        x0 = self.x
+        alpha = self.alpha
+        return A*np.exp(alpha*np.dot(x-x0,x-x0))
+
     @classmethod
     def kinetic_int(cls,basis1,basis2):
         """kinetic integral"""
