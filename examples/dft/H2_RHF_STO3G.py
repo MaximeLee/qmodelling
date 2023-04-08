@@ -1,3 +1,5 @@
+import cProfile
+import pstats
 import sys
 import numpy as np
 import math as m
@@ -87,6 +89,7 @@ def Vpp_int(molec):
     return Vpp
 
 # Gunnarson and Lundwvist exchange-correlation functionnal
+"""
 def G(x):
     return 0.5*((1+x)*m.log(1+1/x)-x**2+x/2-1/3)
 
@@ -125,44 +128,45 @@ def Vxc(x,basis,P):
     
     vxc = rho*exc_prime(x,basis,P) + exc(x,basis,P)
     return vxc
+"""
+
+def density(x,basis,P):
+    B = np.array([[b1(x)*b2(x) for b1 in basis] for b2 in basis])
+    return np.sum(P*B)
+
+# simple LDA approximation (only exchange part no correlation)
+def Vxc(x,basis,P):
+    rho = density(x,basis,P)
+    vxc = -(3/pi)**(1/3)*rho #rho*exc_prime(x,basis,P) + exc(x,basis,P)
+    return vxc
 
 # functions used in the scf loop
 def double_int(basis,P,X):
     """computing two electron operators"""
-    n = molec.n
-    d1 = np.zeros([n,n])
+    n = len(basis)
 
     # computing coulomb repulsion integrals
     Vee = Vee_int(basis)
 
-    for i in range(n):
-        for j in range(n):
-            for k in range(n):
-                for l in range(n):
-                    density = P[k,l]
-                    J = Vee[i,j,k,l]
-
-                    d1[i,j] += P[k,l]*J
+#    d1 = np.zeros([n,n])
+#    for i in range(n):
+#        for j in range(n):
+#            for k in range(n):
+#                for l in range(n):
+#
+#                    J = Vee[i,j,k,l]
+#                    d1[i,j] += P[k,l]*J
+    d1 = np.einsum('ijkl,kl->ij',Vee,P)
 
     # computing the exchange-repulsion term with Riemann integrals over (0,1]
-    dx = X[1]-X[0]
+    dx = linalg.norm(X[1]-X[0])
     d2 = np.zeros([n,n])
 
-    for basis_i in basis:
-        for basis_j in basis:
+    for i,basis_i in enumerate(basis):
+        for j,basis_j in enumerate(basis):
+            for r in X:
 
-            # variable substitution
-            # rr in [0,1]
-            for rr in X:
-                # integral from 0 to infty
-                # r in [0,+infinity]
-                r = rr/(1-rr)
-                d2[i,j]  = basis_i(r)*Vxc(r,basis,P)*basis_j(r)/(1-rr)**2
-
-                # r in [-infinity,0]
-                rr = -rr
-                r = rr/(1+rr)
-                d2[i,j] += basis_i(r)*Vxc(r,basis,P)*basis_j(r)/(1+rr)**2
+                d2[i,j] += basis_i(r)*Vxc(r,basis,P)*basis_j(r)
 
     d2 *= dx
     return d1 + d2
@@ -178,7 +182,7 @@ def compute_Eelec(P,Hcore,G,n):
     return Eelec
 
 # scf loop
-def scf_loop(basis,molec,X,Nmax=200,eps=1e-8):
+def scf_loop(basis,molec,X,Nmax=1,eps=1e-8):
     n = len(basis)
     P = np.zeros([n,n])
 
@@ -235,7 +239,7 @@ basisH2 = dcp(basisH1)
 
 
 # training + results
-n = 500
+n = 1 #500
 Z = 1
 dlin = np.linspace(0.4,10,n)
 
@@ -244,28 +248,36 @@ orbit = Orbital(None,basis)
 
 Etot = []
 
-X = np.linspace(0.0,1-1e-8,n)
+nint = 1000
+xlin = np.linspace(-1e6,1e6,nint)
+z = np.zeros(nint)
+X = np.stack([z,z,xlin],axis=1)
 
-for d in dlin:
+with cProfile.Profile() as profile:
+    for d in dlin:
+    
+        x1 = np.array([0.0, 0.0, 0.0])
+        x2 = np.array([0.0, 0.0, d  ])
+    
+        for b in basisH1:
+            b.x = x1
+        
+        for b in basisH2:
+            b.x = x2
+    
+        H_1 = Atom(Z,x1,orbit) 
+        H_2 = Atom(Z,x2,orbit)
+        
+        HH = (H_1, H_2)
+        
+        molec = Molecule(HH)
+        Eelec = scf_loop(basis,molec,X)
+        Vpp = Vpp_int(molec) 
+        Etot.append(Eelec+Vpp)
 
-    x1 = np.array([0.0, 0.0, 0.0])
-    x2 = np.array([0.0, 0.0, d  ])
-
-    for b in basisH1:
-        b.x = x1
-    
-    for b in basisH2:
-        b.x = x2
-    
-    H_1 = Atom(Z,x1,orbit) 
-    H_2 = Atom(Z,x2,orbit)
-    
-    HH = (H_1, H_2)
-    
-    molec = Molecule(HH)
-    Eelec = scf_loop(basis,molec,X)
-    Vpp = Vpp_int(molec) 
-    Etot.append(Eelec+Vpp)
+res = pstats.Stats(profile)
+res.sort_stats(pstats.SortKey.TIME)
+res.dump_stats("result.prof")
 
 # output results
 import matplotlib.pyplot as plt

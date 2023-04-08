@@ -25,10 +25,9 @@ class PrimitiveGaussian(Basis):
         self.A     = ( 2.0 * alpha / pi ) ** 0.75 
 
     def __call__(self,x):
-        A = self.A
         x0 = self.x
-        alpha = self.alpha
-        return A*np.exp(alpha*np.dot(x-x0,x-x0))
+        dxx = x-x0 
+        return self.A*m.exp(-self.alpha*np.inner(dxx,dxx))
 
     @classmethod
     def kinetic_int(cls,basis1,basis2):
