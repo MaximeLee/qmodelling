@@ -1,0 +1,5 @@
+docs
+qmodelling-env
+qmodelling/func/__pycache__
+qmodelling/__pycache__
+test/__pycache__
