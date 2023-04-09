@@ -154,11 +154,10 @@ def Vxc(X,basis,P):
     return vxc
 
 # functions used in the scf loop
-def double_int(basis,P,X):
+def double_int(basis,Vee,P,X):
     n = len(basis)
 
     # computing coulomb repulsion integrals
-    Vee = Vee_int(basis)
     d1 = np.einsum('ijkl,kl->ij',Vee,P)
 
     # computing the exchange-repulsion term with Riemann integrals over (0,1]
@@ -187,7 +186,7 @@ def double_int(basis,P,X):
             d2[i,j] += np.sum(bir*Vxc_r*bjr)
     
     d2 *= dx
-    return d1 + d2
+    return d1 , d2
 
 
 def P_mat(c,n):
@@ -195,12 +194,23 @@ def P_mat(c,n):
     P = 2.0 * c@c.T   
     return P
 
-def compute_Eelec(P,Hcore,G,n):
-    Eelec = np.sum(P*(Hcore+0.5*G))
-    return Eelec
+def compute_Eelec(X,Vee,P,Hcore):
+
+    # Ecore
+    Ecore = np.sum(P*Hcore) 
+
+    # computing Eee repulsion term
+    Eee = np.einsum('ij,kl,ijkl',P,P,Vee) 
+
+    # Exc first
+    dx = linalg.norm(X[1]-X[0])
+    rho = np.array([density(x.reshape(1,-1),basis,P) for x in X])
+    exc = -3/4*(3*rho/pi)**(1/3)
+    Exc = dx*np.sum(rho*exc)
+    return Ecore,Eee,Exc
 
 # scf loop
-def scf_loop(basis,molec,X,Nmax=200,eps=1e-7):
+def scf_loop(basis,molec,X,Nmax=500,eps=1e-7):
     n = len(basis)
     P = np.zeros([n,n])
 
@@ -212,15 +222,16 @@ def scf_loop(basis,molec,X,Nmax=200,eps=1e-7):
     # integrals
     T   = T_int(basis)
     Vep = Vep_int(basis,molec)
+    Vee = Vee_int(basis)
     Hcore = T + Vep
     E = 0.0
 
-    for _ in range(Nmax):
+    for i in range(Nmax):
         E_old = E
 
         # compute Fock operator
-        G = double_int(basis,P,X) 
-        F = Hcore + G
+        G1,G2 = double_int(basis,Vee,P,X) 
+        F = Hcore + G1 + G2
 
         # solve secular equation
         Fu = np.dot(S_12,np.dot(F,S_12))
@@ -228,14 +239,15 @@ def scf_loop(basis,molec,X,Nmax=200,eps=1e-7):
         c = np.dot(S_12,eigvec)
 
         P = P_mat(c,n)
-        E = compute_Eelec(P,Hcore,G,n) 
+        Ecore,Eee,Exc = compute_Eelec(X,Vee,P,Hcore)
+         
+        E = Ecore + Eee + Exc
 
         if abs(E-E_old)<eps:
             print("Converged !")
-            return E
-
+            return E,Ecore,Eee,Exc,P
     print("Not converged ...")
-    return E
+    return E,Ecore,Eee,Exc,P
 
 # defining the molecule
 alpha1 = 0.3425250914E+01
@@ -265,6 +277,9 @@ basis = (*basisH1,*basisH2)
 orbit = Orbital(None,basis)
 
 Etot = []
+Ecores = []
+Eees = []
+Excs = []
 
 nint = 100
 xlin = np.linspace(-1e2,1e2,nint)
@@ -289,9 +304,14 @@ with cProfile.Profile() as profile:
         HH = (H_1, H_2)
         
         molec = Molecule(HH)
-        Eelec = scf_loop(basis,molec,X)
+        E,Ecore,Eee,Exc,P = scf_loop(basis,molec,X)
+        Eelec = Ecore + Eee + Exc
         Vpp = Vpp_int(molec) 
+
         Etot.append(Eelec+Vpp)
+        Ecores.append(Ecore)
+        Eees.append(Eee)
+        Excs.append(Exc)
 
 res = pstats.Stats(profile)
 res.sort_stats(pstats.SortKey.TIME)
@@ -300,5 +320,10 @@ res.dump_stats("result.prof")
 # output results
 import matplotlib.pyplot as plt
 
-plt.plot(dlin,Etot)
+plt.plot(dlin,Etot,label='total')
+plt.plot(dlin,Ecores,label='core')
+plt.plot(dlin,Eees,label='electronic repulsion')
+plt.plot(dlin,Excs,label='exchange (no correlation)')
+plt.legend()
 plt.savefig("E.png")
+
