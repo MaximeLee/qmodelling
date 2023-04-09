@@ -5,7 +5,8 @@ from scipy import special
  
 pi = np.pi
 
-def boys(x,n):
+def boys(x):
+    n = 0
     if x == 0:
         return 1.0/(2*n+1)
     else:
@@ -27,7 +28,8 @@ class PrimitiveGaussian(Basis):
     def __call__(self,x):
         x0 = self.x
         dxx = x-x0 
-        return self.A*m.exp(-self.alpha*np.inner(dxx,dxx))
+        dxx2 = np.sum(dxx**2,axis=1)
+        return self.A*np.exp(-self.alpha*dxx2)
 
     @classmethod
     def kinetic_int(cls,basis1,basis2):
@@ -81,7 +83,7 @@ class PrimitiveGaussian(Basis):
         Q2 = np.inner(x12_43,x12_43)
 
         # return A1234*e14*e23*2.0*pi**2/(ap23+ap14)*m.sqrt(pi/ap1234)*boys(ap23*ap14/ap1234*Q2,0)
-        return A1234*2.0*pi**2/(ap12*ap43)*e43*e12*m.sqrt(pi/ap1234)*boys((ap43*ap12/ap1234)*Q2,0)
+        return A1234*2.0*pi**2/(ap12*ap43)*e43*e12*m.sqrt(pi/ap1234)*boys((ap43*ap12/ap1234)*Q2)
 
 
     @classmethod
@@ -99,7 +101,7 @@ class PrimitiveGaussian(Basis):
         x12mean = (a1*x1+a2*x2)/p
         dxp_12 = x12mean - Xp
         dxp_122 = np.inner(dxp_12,dxp_12)
-        return 2.0 * A12 * (pi/p) * m.exp(-a12/p*dx1_22) * boys(p*dxp_122,0)
+        return 2.0 * A12 * (pi/p) * m.exp(-a12/p*dx1_22) * boys(p*dxp_122)
 
     @classmethod
     def overlap_int(cls,basis1,basis2):

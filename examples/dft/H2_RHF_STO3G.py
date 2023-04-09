@@ -59,7 +59,6 @@ def Vee_int(basis):
 
     n = len(basis)
     Vee = np.zeros([n,n,n,n])
-
     for i, bi in enumerate(basis):
         for j, bj in enumerate(basis):
             for k, bk in enumerate(basis):
@@ -89,85 +88,104 @@ def Vpp_int(molec):
     return Vpp
 
 # Gunnarson and Lundwvist exchange-correlation functionnal
-"""
-def G(x):
-    return 0.5*((1+x)*m.log(1+1/x)-x**2+x/2-1/3)
-
-def G_prime(x):
-    return 0.5*(m.log(1+1/x)-1/x-2*x+1/2)
-
-def density(x,basis,P):
-    B = np.array([[b1(x)*b2(x) for b1 in basis] for b2 in basis])
-    return np.sum(P*B)
-
-def exc(x,basis,P):
-    rho =  density(x,basis,P)
-    
-    if m.isclose(rho,0.0): return 0.0
-
-    rs = (3/4/pi/rho)**(1/3)
-    y = -0.458/rs - 0.0666*G(rs/11.4)
-    return y
-
-def exc_prime(x,basis,P):
-    rho =  density(x,basis,P)
-
-    if m.isclose(rho,0.0): return 0.0
-
-    rs = (3/4/pi/rho)**(1/3)
-
-    dy1 = -0.458*(4*pi/3)**(1/3)/3*rho**(-2/3)
-    dy2 = -0.0666/11.4*(3/4/pi)**(1/3)*(-1/3*rho**(-4/3))*G_prime(rs/11.4)
-    dy = dy1 + dy2 
-    return dy
-
-def Vxc(x,basis,P):
-    rho = density(x,basis,P)
-    if m.isclose(rho,0.0): return 0.0
-    rs = (3/4/pi/rho)**(1/3)
-    
-    vxc = rho*exc_prime(x,basis,P) + exc(x,basis,P)
-    return vxc
-"""
+#def G(x):
+#    return 0.5*((1+x)*m.log(1+1/x)-x**2+x/2-1/3)
+#
+#def G_prime(x):
+#    return 0.5*(m.log(1+1/x)-1/x-2*x+1/2)
+#
+#def density(x,basis,P):
+#    B = np.array([[b1(x)*b2(x) for b1 in basis] for b2 in basis])
+#    return np.sum(P*B)
+#
+#def exc(x,basis,P):
+#    rho =  density(x,basis,P)
+#    
+#    if m.isclose(rho,0.0): return 0.0
+#
+#    rs = (3/4/pi/rho)**(1/3)
+#    y = -0.458/rs - 0.0666*G(rs/11.4)
+#    return y
+#
+#def exc_prime(x,basis,P):
+#    rho =  density(x,basis,P)
+#
+#    if m.isclose(rho,0.0): return 0.0
+#
+#    rs = (3/4/pi/rho)**(1/3)
+#
+#    dy1 = -0.458*(4*pi/3)**(1/3)/3*rho**(-2/3)
+#    dy2 = -0.0666/11.4*(3/4/pi)**(1/3)*(-1/3*rho**(-4/3))*G_prime(rs/11.4)
+#    dy = dy1 + dy2 
+#    return dy
+#
+#def Vxc(x,basis,P):
+#    rho = density(x,basis,P)
+#    if m.isclose(rho,0.0): return 0.0
+#    rs = (3/4/pi/rho)**(1/3)
+#    
+#    vxc = rho*exc_prime(x,basis,P) + exc(x,basis,P)
+#    return vxc
 
 def density(x,basis,P):
-    B = np.array([[b1(x)*b2(x) for b1 in basis] for b2 in basis])
+    """compute the density at each point of space"""
+
+#    n = len(basis)
+#    B = np.empty([n,n])
+#    for i,b1 in enumerate(basis):
+#        b1x = b1(x)
+#
+#        for j,b2 in enumerate(basis):
+#            b2x = b2(x)
+#
+#            B[i,j] = b1x*b2x
+
+    Bi = np.array([b(x) for b in basis])
+    B = Bi@Bi.T
+
     return np.sum(P*B)
 
 # simple LDA approximation (only exchange part no correlation)
-def Vxc(x,basis,P):
-    rho = density(x,basis,P)
-    vxc = -(3/pi)**(1/3)*rho #rho*exc_prime(x,basis,P) + exc(x,basis,P)
+def Vxc(X,basis,P):
+    nx = len(X)
+    vxc = -(3/pi)**(1/3)*np.array([density(x.reshape(1,-1),basis,P) for x in X])
+#    rho = np.array([density(x.reshape(1,-1),basis,P) for x in X])
+#    vxc = -(3/pi)**(1/3)*rho #rho*exc_prime(x,basis,P) + exc(x,basis,P)
     return vxc
 
 # functions used in the scf loop
 def double_int(basis,P,X):
-    """computing two electron operators"""
     n = len(basis)
 
     # computing coulomb repulsion integrals
     Vee = Vee_int(basis)
-
-#    d1 = np.zeros([n,n])
-#    for i in range(n):
-#        for j in range(n):
-#            for k in range(n):
-#                for l in range(n):
-#
-#                    J = Vee[i,j,k,l]
-#                    d1[i,j] += P[k,l]*J
     d1 = np.einsum('ijkl,kl->ij',Vee,P)
 
     # computing the exchange-repulsion term with Riemann integrals over (0,1]
     dx = linalg.norm(X[1]-X[0])
     d2 = np.zeros([n,n])
 
-    for i,basis_i in enumerate(basis):
-        for j,basis_j in enumerate(basis):
-            for r in X:
+#    for r in X:
+#        Vxc_r =  Vxc(r,basis,P)
+#
+#        for i,basis_i in enumerate(basis):
+#            bir = basis_i(r)
+#    
+#            for j,basis_j in enumerate(basis):
+#                bjr = basis_j(r)
+#    
+#                d2[i,j] += bir*Vxc_r*bjr
 
-                d2[i,j] += basis_i(r)*Vxc(r,basis,P)*basis_j(r)
+    Vxc_r = Vxc(X,basis,P)
 
+    for i,bi in enumerate(basis):
+        bir = bi(X)
+
+        for j,bj in enumerate(basis):
+            bjr = bj(X)
+
+            d2[i,j] += np.sum(bir*Vxc_r*bjr)
+    
     d2 *= dx
     return d1 + d2
 
@@ -182,7 +200,7 @@ def compute_Eelec(P,Hcore,G,n):
     return Eelec
 
 # scf loop
-def scf_loop(basis,molec,X,Nmax=1,eps=1e-8):
+def scf_loop(basis,molec,X,Nmax=200,eps=1e-7):
     n = len(basis)
     P = np.zeros([n,n])
 
@@ -239,7 +257,7 @@ basisH2 = dcp(basisH1)
 
 
 # training + results
-n = 1 #500
+n = 10
 Z = 1
 dlin = np.linspace(0.4,10,n)
 
@@ -248,8 +266,8 @@ orbit = Orbital(None,basis)
 
 Etot = []
 
-nint = 1000
-xlin = np.linspace(-1e6,1e6,nint)
+nint = 100
+xlin = np.linspace(-1e2,1e2,nint)
 z = np.zeros(nint)
 X = np.stack([z,z,xlin],axis=1)
 
