@@ -128,7 +128,11 @@ def Vpp_int(molec):
 #    return vxc
 
 def density(x,basis,P):
-    """compute the density at each point of space"""
+    """compute the density at each point of space
+    
+    basis : list of basis functions
+    P : density matrix
+    """
 
 #    n = len(basis)
 #    B = np.empty([n,n])
@@ -147,6 +151,7 @@ def density(x,basis,P):
 
 # simple LDA approximation (only exchange part no correlation)
 def Vxc(X,basis,P):
+    """potential to be integrated"""
     nx = len(X)
     vxc = -(3/pi)**(1/3)*np.array([density(x.reshape(1,-1),basis,P) for x in X])
 #    rho = np.array([density(x.reshape(1,-1),basis,P) for x in X])
@@ -155,6 +160,11 @@ def Vxc(X,basis,P):
 
 # functions used in the scf loop
 def double_int(basis,Vee,P,X):
+    """compute electronic repulsion operator and exchange,correlation
+    Vee : e-e repulsion in basis function basis (the basis function are inside the parameter (List) basis 
+    P : density matrix
+    X : pts in space to integral the correlation-exchange potential
+    """
     n = len(basis)
 
     # computing coulomb repulsion integrals
@@ -190,11 +200,14 @@ def double_int(basis,Vee,P,X):
 
 
 def P_mat(c,n):
+    """compute the RHF density matrix
+    """
     c = c[:,0:1]
     P = 2.0 * c@c.T   
     return P
 
 def compute_Eelec(X,Vee,P,Hcore):
+   """compute electronic energy with Vee, P and Hcore """
 
     # Ecore
     Ecore = np.sum(P*Hcore) 
@@ -203,6 +216,7 @@ def compute_Eelec(X,Vee,P,Hcore):
     Eee = np.einsum('ij,kl,ijkl',P,P,Vee) 
 
     # Exc first
+    # Riemann integral over R3
     dx = linalg.norm(X[1]-X[0])
     rho = np.array([density(x.reshape(1,-1),basis,P) for x in X])
     exc = -3/4*(3*rho/pi)**(1/3)
@@ -273,6 +287,7 @@ n = 10
 Z = 1
 dlin = np.linspace(0.4,10,n)
 
+# same Gaussian basis function as the STO3G
 basis = (*basisH1,*basisH2)
 orbit = Orbital(None,basis)
 
@@ -282,9 +297,10 @@ Eees = []
 Excs = []
 
 nint = 100
-xlin = np.linspace(-1e2,1e2,nint)
-z = np.zeros(nint)
-X = np.stack([z,z,xlin],axis=1)
+xlin = np.linspace(-50,50,nint)
+xgrid, ygrid, zgrid = np.meshgrid(xlin,xlin,xlin)
+# pts for the Riemann integral of the Exchange-correlation
+X = np.stack([xgrid.flatten(),ygrid.flatten(),zgrid.flatten()],axis=1)
 
 with cProfile.Profile() as profile:
     for d in dlin:
