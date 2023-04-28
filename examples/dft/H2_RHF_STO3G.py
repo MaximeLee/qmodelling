@@ -5,71 +5,195 @@ import numpy as np
 import math as m
 from copy import deepcopy as dcp
 from scipy import special, linalg
-from qmodelling.molecule import Atom, Molecule
-from qmodelling.func.orbital import Orbital
+#from qmodelling.molecule import Atom, Molecule
+#from qmodelling.func.orbital import Orbital
 from qmodelling.func.primitivegaussian import PrimitiveGaussian
 
 pi = np.pi
 
+#############################################
+# Defining classes
+#############################################
+class Atom:
+    def __init__(self,Z,x):
+        self.x = x
+        self.Z = Z
 
-# compute the matrix operators (add proton-proton interactions and overlap integral)
-# H = T + Vee + Vep + Vpp
+class Molecule:
+    def __init__(self,atoms):
+        self.atoms = atoms
 
-def overlap_int(basis):
-    n = len(basis)
+class Orbital:
+    def __init__(self,coeff,basis):
+        self.coeff = coeff
+        self.basis = basis
+        self.n = len(coeff)
+
+    def __call__(self,X):
+        n = self.n
+        coeff = self.coeff
+        basis = self.basis
+        y = np.zeros((len(X),1))
+
+        for i in range(n):
+            y += coeff[i]*basis[i](X)
+        return y
+
+#############################################
+# computing integrals for operators
+#############################################
+
+def overlap_int(orbitals):
+    n = len(orbitals)
     S = np.zeros([n,n])
     
-    # double loops over the atoms
-    for i, basis_i in enumerate(basis):
-        for j, basis_j in enumerate(basis):
+    for i in range(n):
+        orbital_i = orbitals[i]
+        basis_i = orbital_i.basis
+        coeff_i = orbital_i.coeff
+        ni = len(coeff_i)
 
-            S[i,j] = PrimitiveGaussian.overlap_int(basis_i,basis_j)
+        for j in range(n):
+            orbital_j = orbitals[j]
+            basis_j = orbital_j.basis
+            coeff_j = orbital_j.coeff
+            nj = len(coeff_j)
+
+            for k in range(ni):
+                ck = coeff_i[k]
+                bk = basis_i[k]
+
+                for l in range(nj):
+                    cl = coeff_j[l]
+                    bl = basis_j[l]
+
+                    S[i,j] += ck*cl*PrimitiveGaussian.overlap_int(bk,bl)
 
     return S
 
-def T_int(basis):
-
-    n = len(basis)
+def T_int(orbitals):
+    n = len(orbitals)
     T = np.zeros([n,n])
-    
-    # double loops over the atoms
-    for i, basis_i in enumerate(basis):
-        for j, basis_j in enumerate(basis):
 
-            T[i,j] = PrimitiveGaussian.kinetic_int(basis_i,basis_j)
+    # double loops over the atoms
+    for i in range(n):
+        orbital_i = orbitals[i]
+        basis_i = orbital_i.basis
+        coeff_i = orbital_i.coeff
+        ni = len(coeff_i)
+
+        for j in range(n):
+            orbital_j = orbitals[j]
+            basis_j = orbital_j.basis
+            coeff_j = orbital_j.coeff
+            nj = len(coeff_j)
+
+            for k in range(ni):
+                ck = coeff_i[k]
+                bk = basis_i[k]
+
+                for l in range(nj):
+                    cl = coeff_j[l]
+                    bl = basis_j[l]
+
+                    ckl = ck*cl
+                    T[i,j] += ckl*PrimitiveGaussian.kinetic_int(bk,bl)
 
     return T
 
-def Vep_int(basis,molec):
-
-    n = len(basis)
+def Vep_int(basis,molecule):
+    n = len(orbitals)
     Vep = np.zeros([n,n])
     
-    for atom in molec.atoms:
+    for atom in molecule.atoms:
         Xp = atom.x
         Z  = atom.Z
 
-        for i, basis_i in enumerate(basis):
-            for j, basis_j in enumerate(basis):
+        for i in range(n):
+            orbital_i = orbitals[i]
+            basis_i = orbital_i.basis
+            coeff_i = orbital_i.coeff
+            ni = len(coeff_i)
 
-                Vep[i,j] = -Z*PrimitiveGaussian.electron_proton_int(basis_i,basis_j,Xp) 
+            for j in range(n):
+                orbital_j = orbitals[j]
+                basis_j = orbital_j.basis
+                coeff_j = orbital_j.coeff
+                nj = len(coeff_j)
+
+                for k in range(ni):
+                    ck = coeff_i[k] 
+                    bk = basis_i[k]
+
+                    for l in range(nj):
+                        cl = coeff_j[l]
+                        bl = basis_j[l]
+
+                        ckl = ck * cl
+                        
+                        Vep_kl = -Z*ckl*PrimitiveGaussian.electron_proton_int(
+                            bk,
+                            bl,
+                            Xp
+                        ) 
+
+                        Vep[i,j] += Vep_kl
+
     return Vep
 
-def Vee_int(basis):
-
-    n = len(basis)
+def Vee_int(orbitals):
+    n = len(orbitals)
     Vee = np.zeros([n,n,n,n])
-    for i, bi in enumerate(basis):
-        for j, bj in enumerate(basis):
-            for k, bk in enumerate(basis):
-                for l, bl in enumerate(basis):
-                    vee_ijkl = PrimitiveGaussian.electron_electron_int(bi,bj,bk,bl) 
-                    Vee[i,j,k,l] += vee_ijkl 
+
+    # loops over orbitals
+    for i in range(n):
+        orbital_i = orbitals[i]
+        basis_i = orbital_i.basis
+        coeff_i = orbital_i.coeff
+        ni = len(coeff_i)
+
+        for j in range(n):
+            orbital_j = orbitals[j]
+            basis_j = orbital_j.basis
+            coeff_j = orbital_j.coeff
+            nj = len(coeff_j)
+
+            for k in range(n):
+                orbital_k = orbitals[k]
+                basis_k = orbital_k.basis
+                coeff_k = orbital_k.coeff
+                nk = len(coeff_k)
+
+                for l in range(n):
+                    orbital_l = orbitals[l]
+                    basis_l = orbital_l.basis
+                    coeff_l = orbital_l.coeff
+                    nl = len(coeff_l)
+
+                    # loops over basis functions
+                    for ii in range(ni):
+                        cii = coeff_i[ii]
+                        bii = basis_i[ii]
+
+                        for jj in range(nj):
+                            cjj = coeff_j[jj]
+                            bjj = basis_j[jj]
+
+                            for kk in range(nk):
+                                ckk = coeff_k[kk]
+                                bkk = basis_k[kk]
+
+                                for ll in range(nl):
+                                    cll = coeff_l[ll]
+                                    bll = basis_l[ll]
+
+                                    cijkl = cii*cjj*ckk*cll
+                                    Vee[i,j,k,l] += cijkl * PrimitiveGaussian.electron_electron_int(bii,bjj,bkk,bll) 
 
     return Vee
 
 def Vpp_int(molec):
-    n = molec.n
+    n = len(molec.atoms)
     Vpp = 0.0
     
     for i in range(n):
@@ -82,264 +206,221 @@ def Vpp_int(molec):
             xj = atomj.x
             
             xij = xi - xj
-            rij2 = np.inner(xij,xij)
-            Vpp += Zi*Zj/m.sqrt(rij2)
+            rij = linalg.norm(xij)
+            Vpp += Zi*Zj/rij
 
     return Vpp
 
-# Gunnarson and Lundwvist exchange-correlation functionnal
-#def G(x):
-#    return 0.5*((1+x)*m.log(1+1/x)-x**2+x/2-1/3)
-#
-#def G_prime(x):
-#    return 0.5*(m.log(1+1/x)-1/x-2*x+1/2)
-#
-#def density(x,basis,P):
-#    B = np.array([[b1(x)*b2(x) for b1 in basis] for b2 in basis])
-#    return np.sum(P*B)
-#
-#def exc(x,basis,P):
-#    rho =  density(x,basis,P)
-#    
-#    if m.isclose(rho,0.0): return 0.0
-#
-#    rs = (3/4/pi/rho)**(1/3)
-#    y = -0.458/rs - 0.0666*G(rs/11.4)
-#    return y
-#
-#def exc_prime(x,basis,P):
-#    rho =  density(x,basis,P)
-#
-#    if m.isclose(rho,0.0): return 0.0
-#
-#    rs = (3/4/pi/rho)**(1/3)
-#
-#    dy1 = -0.458*(4*pi/3)**(1/3)/3*rho**(-2/3)
-#    dy2 = -0.0666/11.4*(3/4/pi)**(1/3)*(-1/3*rho**(-4/3))*G_prime(rs/11.4)
-#    dy = dy1 + dy2 
-#    return dy
-#
-#def Vxc(x,basis,P):
-#    rho = density(x,basis,P)
-#    if m.isclose(rho,0.0): return 0.0
-#    rs = (3/4/pi/rho)**(1/3)
-#    
-#    vxc = rho*exc_prime(x,basis,P) + exc(x,basis,P)
-#    return vxc
+####################################
+# Function used in the scf loop
+####################################
 
-def density(x,basis,P):
-    """compute the density at each point of space
-    
-    basis : list of basis functions
-    P : density matrix
-    """
+def Coulomb(Vee,P):
+    Vcoulomb = np.einsum('ijkl,kl->ij',Vee,P) 
+    return Vcoulomb
 
-#    n = len(basis)
-#    B = np.empty([n,n])
-#    for i,b1 in enumerate(basis):
-#        b1x = b1(x)
-#
-#        for j,b2 in enumerate(basis):
-#            b2x = b2(x)
-#
-#            B[i,j] = b1x*b2x
+def density(X,orbitals,P):
+    B = np.hstack([orbital(X) for orbital in orbitals])
+    BB = np.einsum('ni,nj->nij',B,B)
+    rho = np.einsum('ij,nij->n',P,BB).reshape(-1,1) 
 
-    Bi = np.array([b(x) for b in basis])
-    B = Bi@Bi.T
+    # normalizing the density
+    # norm = m.sqrt(np.sum(np.einsum('ij,nij->n',P,BBint)*dx**3)
+    return rho#/norm
 
-    return np.sum(P*B)
+def vx(X,orbitals,P):
+    return -(3.0*density(X,orbitals,P)/pi)**(1/3)
 
-# simple LDA approximation (only exchange part no correlation)
-def Vxc(X,basis,P):
-    """potential to be integrated"""
-    nx = len(X)
-    vxc = -(3/pi)**(1/3)*np.array([density(x.reshape(1,-1),basis,P) for x in X])
-#    rho = np.array([density(x.reshape(1,-1),basis,P) for x in X])
-#    vxc = -(3/pi)**(1/3)*rho #rho*exc_prime(x,basis,P) + exc(x,basis,P)
-    return vxc
+# integration points
+Nint = int(2e2)
+xlin = ylin = zlin = np.linspace(-5,15,Nint)
+dx = xlin[1]-xlin[0]
+xgrid, ygrid, zgrid = np.meshgrid(xlin,ylin,zlin)
+Xint = np.stack(
+    [xgrid.flatten(),ygrid.flatten(),zgrid.flatten()],
+    axis=1
+)
+del(xlin,ylin,zlin)
+del(xgrid,ygrid,zgrid)
 
-# functions used in the scf loop
-def double_int(basis,Vee,P,X):
-    """compute electronic repulsion operator and exchange,correlation
-    Vee : e-e repulsion in basis function basis (the basis function are inside the parameter (List) basis 
-    P : density matrix
-    X : pts in space to integral the correlation-exchange potential
-    """
-    n = len(basis)
+def LDA(orbitals,Vee,P):
+    n = len(P)
+    Vc = 0.0
+    Vx = np.zeros([n,n])
 
-    # computing coulomb repulsion integrals
-    d1 = np.einsum('ijkl,kl->ij',Vee,P)
+    for i in range(n):
+        orbital_i = orbitals[i]
 
-    # computing the exchange-repulsion term with Riemann integrals over (0,1]
-    dx = linalg.norm(X[1]-X[0])
-    d2 = np.zeros([n,n])
+        for j in range(n):
+            orbital_j = orbitals[j]
+            
+            vx_X = vx(Xint,orbitals,P)
+            Vx[i,j] = np.sum(orbital_i(Xint)*orbital_j(Xint)*vx_X) 
 
-#    for r in X:
-#        Vxc_r =  Vxc(r,basis,P)
-#
-#        for i,basis_i in enumerate(basis):
-#            bir = basis_i(r)
-#    
-#            for j,basis_j in enumerate(basis):
-#                bjr = basis_j(r)
-#    
-#                d2[i,j] += bir*Vxc_r*bjr
-
-    Vxc_r = Vxc(X,basis,P)
-
-    for i,bi in enumerate(basis):
-        bir = bi(X)
-
-        for j,bj in enumerate(basis):
-            bjr = bj(X)
-
-            d2[i,j] += np.sum(bir*Vxc_r*bjr)
-    
-    d2 *= dx
-    return d1 , d2
+    Vx *= dx**3
+    return Vx,Vc
 
 
-def P_mat(c,n):
-    """compute the RHF density matrix
-    """
+def density_matrix(c):
     c = c[:,0:1]
-    P = 2.0 * c@c.T   
-    return P
+    return  2.0 * c@c.T
 
-def compute_Eelec(X,Vee,P,Hcore):
-   """compute electronic energy with Vee, P and Hcore """
+def exc(rho):
+    return -(3.0/4.0)*(3.0/pi*rho)**(1/3)
 
-    # Ecore
-    Ecore = np.sum(P*Hcore) 
+def energy(Hcore,Vcoulomb,orbitals,P):
+    Ecore    = np.sum(P*Hcore)
+    Ecoulomb = np.sum(P*Vcoulomb)/2.0
+    rho      = density(Xint,orbitals,P)
+    Exc      = np.sum(rho*exc(rho))*dx**3 
+    return Ecore , Ecoulomb , Exc
 
-    # computing Eee repulsion term
-    Eee = np.einsum('ij,kl,ijkl',P,P,Vee) 
+def scf_loop(orbitals,molecule,params):
 
-    # Exc first
-    # Riemann integral over R3
-    dx = linalg.norm(X[1]-X[0])
-    rho = np.array([density(x.reshape(1,-1),basis,P) for x in X])
-    exc = -3/4*(3*rho/pi)**(1/3)
-    Exc = dx*np.sum(rho*exc)
-    return Ecore,Eee,Exc
+    tol = params['tol']
+    Niter = params['Niter']
+    n = len(orbitals)
 
-# scf loop
-def scf_loop(basis,molec,X,Nmax=500,eps=1e-7):
-    n = len(basis)
+    # density matrix
     P = np.zeros([n,n])
 
-    # compute overlap matrix
-    S = overlap_int(basis)
-    S12  = linalg.sqrtm(S) 
+    # compute integrals 
+    T   = T_int(orbitals)
+    Vep = Vep_int(orbitals,molecule)
+    Vee = Vee_int(orbitals)
+    S = overlap_int(orbitals)
+    S12 = linalg.sqrtm(S)
     S_12 = linalg.inv(S12)
+    del(S,S12)
 
-    # integrals
-    T   = T_int(basis)
-    Vep = Vep_int(basis,molec)
-    Vee = Vee_int(basis)
+    # core Hamiltonian
     Hcore = T + Vep
-    E = 0.0
 
-    for i in range(Nmax):
+    # high enough initial random value
+    E = 1e2 
+
+    for _ in range(Niter):
+
+        # save Energy from last iteration
         E_old = E
+        
+        # coulomb interactions
+        Vcoulomb = Coulomb(Vee,P)
 
-        # compute Fock operator
-        G1,G2 = double_int(basis,Vee,P,X) 
-        F = Hcore + G1 + G2
+        # exchange-correlation functionnal
+        Vx, Vc = LDA(orbitals,Vee,P)
 
-        # solve secular equation
+        # Fock operator 
+        F = Hcore + Vcoulomb + Vx + Vc
+
+        # solve normalized equation system
         Fu = np.dot(S_12,np.dot(F,S_12))
-        eigval , eigvec = linalg.eigh(Fu)
+        eigval, eigvec = linalg.eigh(Fu)
         c = np.dot(S_12,eigvec)
 
-        P = P_mat(c,n)
-        Ecore,Eee,Exc = compute_Eelec(X,Vee,P,Hcore)
-         
-        E = Ecore + Eee + Exc
+        # density matrix
+        P = density_matrix(c)
 
-        if abs(E-E_old)<eps:
-            print("Converged !")
-            return E,Ecore,Eee,Exc,P
-    print("Not converged ...")
-    return E,Ecore,Eee,Exc,P
+        # compute energy
+        Ecore , Ecoulomb , Exc = energy(Hcore,Vcoulomb,orbitals,P)
+        E = Ecore + Ecoulomb + Exc
 
-# defining the molecule
+        if abs(E-E_old) < tol:
+        #if abs(E-E_old) < tol*abs(E):
+            return Ecore , Ecoulomb , Exc, c, eigval
+
+    print('Not converged...')
+    return Ecore , Ecoulomb , Exc, c, eigval
+
+####################################
+# Training loop over each configuration
+####################################
+
+# parameters of the simulation
+# coefficients of the gaussians
 alpha1 = 0.3425250914E+01
 alpha2 = 0.6239137298E+00
 alpha3 = 0.1688554040E+00
-
-PG1 = PrimitiveGaussian(alpha1)
-PG2 = PrimitiveGaussian(alpha2) 
-PG3 = PrimitiveGaussian(alpha3) 
-
+# coefficients of linear combination
 c1 = 0.1543289673E+00 
 c2 = 0.5353281423E+00
 c3 = 0.4446345422E+00
+coeff = (c1,c2,c3)
 
-coeff = None #(c1, c2, c3)
-
-basisH1 = (PG1, PG2, PG3) 
-basisH2 = dcp(basisH1) 
-
-
-# training + results
+# distance between the Hs
 n = 10
-Z = 1
 dlin = np.linspace(0.4,10,n)
 
-# same Gaussian basis function as the STO3G
-basis = (*basisH1,*basisH2)
-orbit = Orbital(None,basis)
+# parameters of the scp loop
+params = {'tol':1e-7,'Niter':200}
 
-Etot = []
-Ecores = []
-Eees = []
-Excs = []
+E_list = []
+Ecore_list = []
+Ecoulomb_list = []
+Exc_list = []
+Epp_list = []
 
-nint = 100
-xlin = np.linspace(-50,50,nint)
-xgrid, ygrid, zgrid = np.meshgrid(xlin,xlin,xlin)
-# pts for the Riemann integral of the Exchange-correlation
-X = np.stack([xgrid.flatten(),ygrid.flatten(),zgrid.flatten()],axis=1)
+#with cProfile.Profile() as profile:
+for i,d in enumerate(dlin):
 
-with cProfile.Profile() as profile:
-    for d in dlin:
-    
-        x1 = np.array([0.0, 0.0, 0.0])
-        x2 = np.array([0.0, 0.0, d  ])
-    
-        for b in basisH1:
-            b.x = x1
-        
-        for b in basisH2:
-            b.x = x2
-    
-        H_1 = Atom(Z,x1,orbit) 
-        H_2 = Atom(Z,x2,orbit)
-        
-        HH = (H_1, H_2)
-        
-        molec = Molecule(HH)
-        E,Ecore,Eee,Exc,P = scf_loop(basis,molec,X)
-        Eelec = Ecore + Eee + Exc
-        Vpp = Vpp_int(molec) 
+    # defining the molecule
+    x1 = np.array([0.0, 0.0, 0.0])
+    x2 = np.array([0.0, 0.0,   d])
+    H1 = Atom(Z=1,x=x1)
+    H2 = Atom(Z=1,x=x2)
+    atoms = (H1,H2)
+    molecule = Molecule(atoms)
 
-        Etot.append(Eelec+Vpp)
-        Ecores.append(Ecore)
-        Eees.append(Eee)
-        Excs.append(Exc)
+    # defining basis functions then orbitals
+    # first Hydrogen
+    PG_H1_1 = PrimitiveGaussian(alpha=alpha1,x0=x1) 
+    PG_H1_2 = PrimitiveGaussian(alpha=alpha2,x0=x1) 
+    PG_H1_3 = PrimitiveGaussian(alpha=alpha3,x0=x1) 
+    basisH1 = (PG_H1_1, PG_H1_2,PG_H1_3)
+    orbitalH1 = Orbital(coeff,basisH1)
 
-res = pstats.Stats(profile)
-res.sort_stats(pstats.SortKey.TIME)
-res.dump_stats("result.prof")
+    # second Hydrogen
+    PG_H2_1 = PrimitiveGaussian(alpha=alpha1,x0=x2) 
+    PG_H2_2 = PrimitiveGaussian(alpha=alpha2,x0=x2) 
+    PG_H2_3 = PrimitiveGaussian(alpha=alpha3,x0=x2) 
+    basisH2 = (PG_H2_1, PG_H2_2,PG_H2_3)
+    orbitalH2 = Orbital(coeff,basisH2)
 
-# output results
+    orbitals = (orbitalH1, orbitalH2)
+
+    # for density normalization
+    Bint = np.hstack([orbital(Xint) for orbital in orbitals])
+    BBint = np.einsum('ni,nj->nij',Bint,Bint)
+
+    # scf loop
+    Ecore , Ecoulomb , Exc, P, eigval = scf_loop(orbitals,molecule,params)
+    Eelec = Ecore + Ecoulomb + Exc
+
+    # proton-proton interaction
+    Epp = Vpp_int(molecule)
+
+    E_list.append(Epp+Eelec)
+    Ecore_list.append(Ecore)
+    Ecoulomb_list.append(Ecoulomb)
+    Exc_list.append(Exc)
+    Epp_list.append(Epp)
+
+    print(f"Opti {i+1}/{n} done!")
+    print(eigval)
+    print('-'*10)
+    print(P)
+    print('-'*10)
+    print('-'*10)
+
+#results = pstats.Stats(profile)
+#results.sort_stats(pstats.SortKey.TIME)
+#profile.dump_stats('results.prof')
+
 import matplotlib.pyplot as plt
-
-plt.plot(dlin,Etot,label='total')
-plt.plot(dlin,Ecores,label='core')
-plt.plot(dlin,Eees,label='electronic repulsion')
-plt.plot(dlin,Excs,label='exchange (no correlation)')
+plt.plot(dlin,E_list,marker='x',label='total')
+plt.plot(dlin,Ecore_list,marker='x',label='Core (kinetic + ep)')
+plt.plot(dlin,Ecoulomb_list,marker='x',label='Coulomb')
+plt.plot(dlin,Exc_list,marker='x',label='xc')
+plt.plot(dlin,Epp_list,marker='x',label='pp')
 plt.legend()
-plt.savefig("E.png")
-
+plt.savefig('E.png')

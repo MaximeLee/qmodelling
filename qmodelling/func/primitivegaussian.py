@@ -19,16 +19,16 @@ class PrimitiveGaussian(Basis):
 
     alpha : parameter of the gaussian function
     """
-    def __init__(self,alpha):
+    def __init__(self,alpha,x0):
         super().__init__()
         self.alpha = alpha
+        self.x0 = x0
         # normalizing constant
         self.A     = ( 2.0 * alpha / pi ) ** 0.75 
 
     def __call__(self,x):
-        x0 = self.x
-        dxx = x-x0 
-        dxx2 = np.sum(dxx**2,axis=1)
+        dxx = x-self.x0 
+        dxx2 = np.sum(dxx**2,axis=1,keepdims=True)
         return self.A*np.exp(-self.alpha*dxx2)
 
     @classmethod
@@ -36,7 +36,7 @@ class PrimitiveGaussian(Basis):
         """kinetic integral"""
         overlap = cls.overlap_int(basis1,basis2)
         a1 , a2 = basis1.alpha , basis2.alpha
-        x1 , x2 = basis1.x , basis2.x
+        x1 , x2 = basis1.x0 , basis2.x0
 
         a1p2 = a1 + a2
         xmean = (a1*x1+a2*x2)/a1p2
@@ -53,10 +53,10 @@ class PrimitiveGaussian(Basis):
         """electron-electron integral"""
         A1234 = basis1.A * basis2.A * basis3.A * basis4.A
         
-        x1 = basis1.x
-        x2 = basis2.x
-        x3 = basis3.x
-        x4 = basis4.x
+        x1 = basis1.x0 
+        x2 = basis2.x0 
+        x3 = basis3.x0 
+        x4 = basis4.x0 
 
         a1 = basis1.alpha
         a2 = basis2.alpha
@@ -82,7 +82,6 @@ class PrimitiveGaussian(Basis):
         x12_43 = x12_mean - x43_mean
         Q2 = np.inner(x12_43,x12_43)
 
-        # return A1234*e14*e23*2.0*pi**2/(ap23+ap14)*m.sqrt(pi/ap1234)*boys(ap23*ap14/ap1234*Q2,0)
         return A1234*2.0*pi**2/(ap12*ap43)*e43*e12*m.sqrt(pi/ap1234)*boys((ap43*ap12/ap1234)*Q2)
 
 
@@ -91,7 +90,7 @@ class PrimitiveGaussian(Basis):
         """electron-proton integral"""
         A12 = basis1.A*basis2.A
         a1 , a2 = basis1.alpha , basis2.alpha
-        x1 , x2 = basis1.x , basis2.x
+        x1 , x2 = basis1.x0 , basis2.x0
         p = a1 + a2
 
         a12 = a1 * a2
@@ -111,7 +110,7 @@ class PrimitiveGaussian(Basis):
         alpha1 , alpha2 = basis1.alpha , basis2.alpha
         alpha_1p2 = alpha1 + alpha2
          
-        x1 , x2 = basis1.x , basis2.x
+        x1 , x2 = basis1.x0 , basis2.x0
         dr = x2-x1
         dr2 = np.inner(dr,dr) 
         e12 = m.exp(-alpha1*alpha2/alpha_1p2*dr2)
