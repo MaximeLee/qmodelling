@@ -220,17 +220,26 @@ def Vpp_int(molec):
 ####################################
 
 def Coulomb(Vee,P):
-    """Coulomb interaction"""
+    """Coulomb interaction
+    
+    Vee : for electron integrals in AO basis
+    P   : density matrix
+    """
     Vcoulomb = np.einsum('ijkl,kl->ij',Vee,P) 
     return Vcoulomb
 
 def density(X,P,S):
-    """computing density at each points of discretized grid"""
+    """computing density at each points of discretized grid
+
+    X : Points where to compute density
+    P : density matrix
+    S : overlap matrix
+    """
     B = np.hstack([orbital(X) for orbital in orbitals])
     BB = np.einsum('ni,nj->nij',B,B)
     rho = np.einsum('ij,nij->n',P,BB).reshape(-1,1) 
 
-    # L1-normalization the density  
+    # L1-normalization the density with Density and Overlap matrices
     norm = np.einsum('ij,ij',P,S)
     return rho/norm
 
@@ -240,7 +249,12 @@ def vx(rho):
 
 
 def LDA(orbitals,P,S):
-    """LDA operator in atomic orbital basis"""
+    """LDA operator in atomic orbital basis
+
+    orbitals : list containing AO objects
+    P : density matrix
+    S : overlap matrix
+    """
     n = len(orbitals)
     Vc = 0.0
     Vx = np.zeros([n,n])
@@ -255,13 +269,18 @@ def LDA(orbitals,P,S):
             # loop over fuzzy cell functions
             for ii in range(n):
                 for jj in range(ii+1,n):
+                    # center of the first cell
                     R1 = orbitals[ii].x
+                    # center of the secind cell
                     R2 = orbitals[jj].x
                     # 1 -> 2
+                    # center integrals at center of cell 1
                     Dx = X_cartesian_int - R1
                     rho = density(Dx,P,S)
                     vx_X = vx(rho)
+                    # fuzzy cell weight function centered at 1
                     wcell, _ = normalized_cell_functions(Dx,R1=R1,R2=R2)
+                    # Chebyshev + Lebedenev quadrature + variable substitution for radial component (R/Mu)
                     Vx[i,j] += np.einsum(
                         'ij,ij',
                         orbital_i(Dx)*orbital_j(Dx)*vx_X*wcell*np.sin(Phi_int)*R_int**2*2.0*rm/(1.0-Mu_int)**2,
@@ -291,7 +310,13 @@ def exc(rho):
     return -(3.0/4.0)*(3.0/pi*rho)**(1/3)
 
 def energy(orbitals,Hcore,Vcoulomb,S,P):
-    """computing energy of the system"""
+    """computing energy of the system
+    orbitals : list of AO objects
+    Hcore : Core Hamiltonian in AO basis
+    Vcoulomb : Coulomb operator in A0 basis
+    S : overlap matrix
+    P : density matrix
+    """
     Ecore    = np.sum(P*Hcore)
     Ecoulomb = np.sum(P*Vcoulomb)/2.0
     #rho      = density(Xint,orbitals,P)
@@ -299,6 +324,7 @@ def energy(orbitals,Hcore,Vcoulomb,S,P):
 
     Exc = 0.0
     n = len(orbitals)
+    # loop over fuzzy cells
     for ii in range(n):
         for jj in range(ii+1,n):
             R1 = orbitals[ii].x
@@ -403,6 +429,7 @@ Mu_quadrature = (Nr+1.0-2.0*ii)/(Nr+1.0) + 2.0/pi*(1.0 + 2.0/3.0*sin_i**2)*cos_i
 # Chebyshev quadrature points on [0, +infty [
 # Bragg-slater Radius for Hydrogen
 rm = 0.35 # Angstrom
+# variable substitution for the radial component 
 R_quadrature = rm*(1+Mu_quadrature)/(1-Mu_quadrature)
 # Chebyshev quadrature weights
 Wr_quadrature = 16.0/3.0/(Nr+1)*sin_i**4
