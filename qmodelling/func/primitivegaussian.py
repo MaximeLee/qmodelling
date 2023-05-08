@@ -27,8 +27,7 @@ class PrimitiveGaussian(Basis):
         self.A     = ( 2.0 * alpha / pi ) ** 0.75 
 
     def __call__(self,x):
-        dxx = x-self.x0 
-        dxx2 = np.sum(dxx**2,axis=1,keepdims=True)
+        dxx2 = np.sum((x-self.x0)**2,axis=1,keepdims=True)
         return self.A*np.exp(-self.alpha*dxx2)
 
     @classmethod

@@ -37,11 +37,14 @@ class Orbital:
         n = self.n
         coeff = self.coeff
         basis = self.basis
-        y = np.zeros((len(X),1))
 
+        y = np.zeros((len(X),1))
         for i in range(n):
             y += coeff[i]*basis[i](X)
-        return y
+
+#        basisX = np.stack([b(X).flatten() for b in basis],axis=1)
+#        y = np.einsum('m,nm',coeff,basisX)
+        return y.reshape(-1,1)
 
 #############################################
 # computing integrals for operators
@@ -259,6 +262,31 @@ def LDA(orbitals,P,S):
     Vc = 0.0
     Vx = np.zeros([n,n])
 
+    # storing values of exchange-correlation function evaluated at 
+    # quadrature points centered at each fuzz cell centers
+    Vx_X = np.empty([n,n,2,len(X_cartesian_int),1])
+
+    # some preprocessing with fuzzy cells
+    for ii in range(n):
+        for jj in range(ii+1,n):
+            # center of the first cell
+            R1 = orbitals[ii].x
+            # center of the secind cell
+            R2 = orbitals[jj].x
+
+            # 1 -> 2
+            # center integrals at center of cell 1
+            Dx = X_cartesian_int - R1
+            rho = density(Dx,P,S)
+            vx_X = vx(rho)
+            Vx_X[ii,jj,0] = vx_X
+
+            # 2 -> 1
+            Dx = X_cartesian_int - R2
+            rho = density(Dx,P,S)
+            vx_X = vx(rho)
+            Vx_X[ii,jj,1] = vx_X
+
     # loop over AO
     for i in range(n):
         orbital_i = orbitals[i]
@@ -269,15 +297,7 @@ def LDA(orbitals,P,S):
             # loop over fuzzy cell functions
             for ii in range(n):
                 for jj in range(ii+1,n):
-                    # center of the first cell
-                    R1 = orbitals[ii].x
-                    # center of the secind cell
-                    R2 = orbitals[jj].x
-                    # 1 -> 2
-                    # center integrals at center of cell 1
-                    Dx = X_cartesian_int - R1
-                    rho = density(Dx,P,S)
-                    vx_X = vx(rho)
+                    vx_X = Vx_X[ii,jj,0]
                     # fuzzy cell weight function centered at 1
                     wcell, _ = normalized_cell_functions(Dx,R1=R1,R2=R2)
                     # Chebyshev + Lebedenev quadrature + variable substitution for radial component (R/Mu)
@@ -287,9 +307,10 @@ def LDA(orbitals,P,S):
                         Wint
                     )
                     # 2 -> 1
-                    Dx = X_cartesian_int - R2
-                    rho = density(Dx,P,S)
-                    vx_X = vx(rho)
+#                    Dx = X_cartesian_int - R2
+#                    rho = density(Dx,P,S)
+#                    vx_X = vx(rho)
+                    vx_X = Vx_X[ii,jj,1]
                     wcell, _ = normalized_cell_functions(Dx,R1=R2,R2=R1)
                     Vx[i,j] += np.einsum(
                         'ij,ij',
@@ -481,7 +502,8 @@ alpha3 = 0.1688554040E+00
 c1 = 0.1543289673E+00 
 c2 = 0.5353281423E+00
 c3 = 0.4446345422E+00
-coeff = (c1,c2,c3)
+#coeff = (c1,c2,c3)
+coeff = np.array([c1,c2,c3])
 
 # distance between the Hs
 n = 20
@@ -496,58 +518,58 @@ Ecoulomb_list = []
 Exc_list = []
 Epp_list = []
 
-#with cProfile.Profile() as profile:
-for i,d in enumerate(dlin):
-
-    # defining the molecule
-    x1 = np.array([0.0, 0.0, 0.0]).reshape(1,-1)
-    x2 = np.array([0.0, 0.0,   d]).reshape(1,-1)
-    H1 = Atom(Z=1,x=x1)
-    H2 = Atom(Z=1,x=x2)
-    atoms = (H1,H2)
-    molecule = Molecule(atoms)
-
-    # defining basis functions then orbitals
-    # first Hydrogen
-    PG_H1_1 = PrimitiveGaussian(alpha=alpha1,x0=x1) 
-    PG_H1_2 = PrimitiveGaussian(alpha=alpha2,x0=x1) 
-    PG_H1_3 = PrimitiveGaussian(alpha=alpha3,x0=x1) 
-    basisH1 = (PG_H1_1, PG_H1_2,PG_H1_3)
-    orbitalH1 = Orbital(coeff,basisH1)
-    orbitalH1.x = x1
-
-    # second Hydrogen
-    PG_H2_1 = PrimitiveGaussian(alpha=alpha1,x0=x2) 
-    PG_H2_2 = PrimitiveGaussian(alpha=alpha2,x0=x2) 
-    PG_H2_3 = PrimitiveGaussian(alpha=alpha3,x0=x2) 
-    basisH2 = (PG_H2_1, PG_H2_2,PG_H2_3)
-    orbitalH2 = Orbital(coeff,basisH2)
-    orbitalH2.x = x2
-
-    orbitals = (orbitalH1, orbitalH2)
-
-    # scf loop
-    Ecore , Ecoulomb , Exc, P, eigval = scf_loop(orbitals,molecule,params)
-    Eelec = Ecore + Ecoulomb + Exc
-
-    # proton-proton interaction
-    Epp = Vpp_int(molecule)
-
-    E_list.append(Epp+Eelec)
-    Ecore_list.append(Ecore)
-    Ecoulomb_list.append(Ecoulomb)
-    Exc_list.append(Exc)
-    Epp_list.append(Epp)
-    print(f"Opti {i+1}/{n} done!")
+with cProfile.Profile() as profile:
+    for i,d in enumerate(dlin[:2]):
+    
+        # defining the molecule
+        x1 = np.array([0.0, 0.0, 0.0]).reshape(1,-1)
+        x2 = np.array([0.0, 0.0,   d]).reshape(1,-1)
+        H1 = Atom(Z=1,x=x1)
+        H2 = Atom(Z=1,x=x2)
+        atoms = (H1,H2)
+        molecule = Molecule(atoms)
+    
+        # defining basis functions then orbitals
+        # first Hydrogen
+        PG_H1_1 = PrimitiveGaussian(alpha=alpha1,x0=x1) 
+        PG_H1_2 = PrimitiveGaussian(alpha=alpha2,x0=x1) 
+        PG_H1_3 = PrimitiveGaussian(alpha=alpha3,x0=x1) 
+        basisH1 = (PG_H1_1, PG_H1_2,PG_H1_3)
+        orbitalH1 = Orbital(coeff,basisH1)
+        orbitalH1.x = x1
+    
+        # second Hydrogen
+        PG_H2_1 = PrimitiveGaussian(alpha=alpha1,x0=x2) 
+        PG_H2_2 = PrimitiveGaussian(alpha=alpha2,x0=x2) 
+        PG_H2_3 = PrimitiveGaussian(alpha=alpha3,x0=x2) 
+        basisH2 = (PG_H2_1, PG_H2_2,PG_H2_3)
+        orbitalH2 = Orbital(coeff,basisH2)
+        orbitalH2.x = x2
+    
+        orbitals = (orbitalH1, orbitalH2)
+    
+        # scf loop
+        Ecore , Ecoulomb , Exc, P, eigval = scf_loop(orbitals,molecule,params)
+        Eelec = Ecore + Ecoulomb + Exc
+    
+        # proton-proton interaction
+        Epp = Vpp_int(molecule)
+    
+        E_list.append(Epp+Eelec)
+        Ecore_list.append(Ecore)
+        Ecoulomb_list.append(Ecoulomb)
+        Exc_list.append(Exc)
+        Epp_list.append(Epp)
+        print(f"Opti {i+1}/{n} done!")
 #    print(eigval)
 #    print('-'*10)
 #    print(P)
 #    print('-'*10)
 #    print('-'*10)
 
-#results = pstats.Stats(profile)
-#results.sort_stats(pstats.SortKey.TIME)
-#profile.dump_stats('results.prof')
+results = pstats.Stats(profile)
+results.sort_stats(pstats.SortKey.TIME)
+profile.dump_stats('results.prof')
 
 plt.figure(1)
 plt.plot(dlin,E_list,marker='x',label='total')

@@ -20,14 +20,15 @@ def confocal_elliptic_coordinates(r,R1,R2):
 
     return lbda, nu
 
-def p(nu):
-    return 3.0/2.0*nu - 0.5*nu**3
+#def p(nu):
+#    return 3.0/2.0*nu - 0.5*nu**3
 
 def pk(nu,k=3):
     """antisymetric function respecting the conditions"""
     out = nu
     for _ in range(k):
-        out = p(out)
+        #out = 3.0/2.0*out - 0.5*out**3 #p(out)
+        out = 0.5*out*(3.0-out**2)
     return out
 
 def s(nu,k=3):
