@@ -506,7 +506,7 @@ c3 = 0.4446345422E+00
 coeff = np.array([c1,c2,c3])
 
 # distance between the Hs
-n = 20
+n = 10
 dlin = np.linspace(0.4,15,n)
 
 # parameters of the scp loop
@@ -518,58 +518,58 @@ Ecoulomb_list = []
 Exc_list = []
 Epp_list = []
 
-with cProfile.Profile() as profile:
-    for i,d in enumerate(dlin[:2]):
-    
-        # defining the molecule
-        x1 = np.array([0.0, 0.0, 0.0]).reshape(1,-1)
-        x2 = np.array([0.0, 0.0,   d]).reshape(1,-1)
-        H1 = Atom(Z=1,x=x1)
-        H2 = Atom(Z=1,x=x2)
-        atoms = (H1,H2)
-        molecule = Molecule(atoms)
-    
-        # defining basis functions then orbitals
-        # first Hydrogen
-        PG_H1_1 = PrimitiveGaussian(alpha=alpha1,x0=x1) 
-        PG_H1_2 = PrimitiveGaussian(alpha=alpha2,x0=x1) 
-        PG_H1_3 = PrimitiveGaussian(alpha=alpha3,x0=x1) 
-        basisH1 = (PG_H1_1, PG_H1_2,PG_H1_3)
-        orbitalH1 = Orbital(coeff,basisH1)
-        orbitalH1.x = x1
-    
-        # second Hydrogen
-        PG_H2_1 = PrimitiveGaussian(alpha=alpha1,x0=x2) 
-        PG_H2_2 = PrimitiveGaussian(alpha=alpha2,x0=x2) 
-        PG_H2_3 = PrimitiveGaussian(alpha=alpha3,x0=x2) 
-        basisH2 = (PG_H2_1, PG_H2_2,PG_H2_3)
-        orbitalH2 = Orbital(coeff,basisH2)
-        orbitalH2.x = x2
-    
-        orbitals = (orbitalH1, orbitalH2)
-    
-        # scf loop
-        Ecore , Ecoulomb , Exc, P, eigval = scf_loop(orbitals,molecule,params)
-        Eelec = Ecore + Ecoulomb + Exc
-    
-        # proton-proton interaction
-        Epp = Vpp_int(molecule)
-    
-        E_list.append(Epp+Eelec)
-        Ecore_list.append(Ecore)
-        Ecoulomb_list.append(Ecoulomb)
-        Exc_list.append(Exc)
-        Epp_list.append(Epp)
-        print(f"Opti {i+1}/{n} done!")
+#with cProfile.Profile() as profile:
+for i,d in enumerate(dlin):
+
+    # defining the molecule
+    x1 = np.array([0.0, 0.0, 0.0]).reshape(1,-1)
+    x2 = np.array([0.0, 0.0,   d]).reshape(1,-1)
+    H1 = Atom(Z=1,x=x1)
+    H2 = Atom(Z=1,x=x2)
+    atoms = (H1,H2)
+    molecule = Molecule(atoms)
+
+    # defining basis functions then orbitals
+    # first Hydrogen
+    PG_H1_1 = PrimitiveGaussian(alpha=alpha1,x0=x1) 
+    PG_H1_2 = PrimitiveGaussian(alpha=alpha2,x0=x1) 
+    PG_H1_3 = PrimitiveGaussian(alpha=alpha3,x0=x1) 
+    basisH1 = (PG_H1_1, PG_H1_2,PG_H1_3)
+    orbitalH1 = Orbital(coeff,basisH1)
+    orbitalH1.x = x1
+
+    # second Hydrogen
+    PG_H2_1 = PrimitiveGaussian(alpha=alpha1,x0=x2) 
+    PG_H2_2 = PrimitiveGaussian(alpha=alpha2,x0=x2) 
+    PG_H2_3 = PrimitiveGaussian(alpha=alpha3,x0=x2) 
+    basisH2 = (PG_H2_1, PG_H2_2,PG_H2_3)
+    orbitalH2 = Orbital(coeff,basisH2)
+    orbitalH2.x = x2
+
+    orbitals = (orbitalH1, orbitalH2)
+
+    # scf loop
+    Ecore , Ecoulomb , Exc, P, eigval = scf_loop(orbitals,molecule,params)
+    Eelec = Ecore + Ecoulomb + Exc
+
+    # proton-proton interaction
+    Epp = Vpp_int(molecule)
+
+    E_list.append(Epp+Eelec)
+    Ecore_list.append(Ecore)
+    Ecoulomb_list.append(Ecoulomb)
+    Exc_list.append(Exc)
+    Epp_list.append(Epp)
+    print(f"Opti {i+1}/{n} done!")
 #    print(eigval)
 #    print('-'*10)
 #    print(P)
 #    print('-'*10)
 #    print('-'*10)
 
-results = pstats.Stats(profile)
-results.sort_stats(pstats.SortKey.TIME)
-profile.dump_stats('results.prof')
+#results = pstats.Stats(profile)
+#results.sort_stats(pstats.SortKey.TIME)
+#profile.dump_stats('results.prof')
 
 plt.figure(1)
 plt.plot(dlin,E_list,marker='x',label='total')
@@ -584,4 +584,4 @@ plt.figure(2)
 plt.plot(dlin,E_list,marker='x')
 plt.xlabel('x (Angstrom)')
 plt.ylabel('E (Hartree)')
-plt.savefig('E.png')
+plt.savefig('E_becke.png')
