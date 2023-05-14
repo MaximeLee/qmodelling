@@ -17,11 +17,7 @@ def confocal_elliptic_coordinates(r,R1,R2):
 
     lbda = (r1 + r2)/R12 # lambda
     nu   = (r1 - r2)/R12
-
     return lbda, nu
-
-#def p(nu):
-#    return 3.0/2.0*nu - 0.5*nu**3
 
 def pk(nu,k=3):
     """antisymetric function respecting the conditions"""
@@ -38,30 +34,32 @@ def s(nu,k=3):
 def normalized_cell_functions(r,R1,R2,k=3):
     """cell function for diatomic systems"""
     _, nu12 = confocal_elliptic_coordinates(r,R1,R2) 
-    #_, nu21 = confocal_elliptic_coordinates(r,R2,R1) 
-    nu21 = -nu12
+    _, nu21 = confocal_elliptic_coordinates(r,R2,R1) 
+
     s1 = s(nu12,k)
     s2 = s(nu21,k)
 
     return s1/(s1+s2), s2/(s1+s2)
 """
-R1 = np.array([0.0, 0.0])
-R2 = np.array([1.0, 0.0])
+R1 = np.array([0.0, 0.0]).reshape(1,-1)
+R2 = np.array([1.0, 0.0]).reshape(1,-1)
 
 rlin = np.linspace(0.0,1.0)
-S1, S2 = [], []
+S1, S2, S12 = [], [], []
 for rr in rlin:
-    r = np.array([rr,1.0])
+    r = np.array([rr,1.0]).reshape(1,-1)
 
     s1, s2 = normalized_cell_functions(r,R1,R2)
-    S1.append(s1)
-    S2.append(s2)
+    S1.append(s1.flatten())
+    S2.append(s2.flatten())
+    S12.append(s1.flatten()+s2.flatten())
 
 plt.plot(rlin,S1)
 plt.plot(rlin,S2)
+plt.plot(rlin,S12)
 plt.show()
 R = np.random.uniform(size=[5,3])
 R1 = np.array([0.0, 0.0, 0.0]).reshape(1,3)
 R2 = np.array([1.0, 0.0, 0.0]).reshape(1,3)
 print(confocal_elliptic_coordinates(R,R1,R2)[1].shape)
-"""
+#"""

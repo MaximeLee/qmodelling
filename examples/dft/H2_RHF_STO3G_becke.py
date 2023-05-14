@@ -266,7 +266,7 @@ def LDA(orbitals,P,S):
     # quadrature points centered at each fuzz cell centers
     Vx_X = np.empty([n,n,2,len(X_cartesian_int),1])
 
-    # some preprocessing with fuzzy cells
+    # computing volumic functionnal potential beforehand
     for ii in range(n):
         for jj in range(ii+1,n):
             # center of the first cell
@@ -275,14 +275,15 @@ def LDA(orbitals,P,S):
             R2 = orbitals[jj].x
 
             # 1 -> 2
-            # center integrals at center of cell 1
-            Dx = X_cartesian_int - R1
+            # centering integrals at center of cell 1
+            Dx = X_cartesian_int + R1
             rho = density(Dx,P,S)
             vx_X = vx(rho)
             Vx_X[ii,jj,0] = vx_X
 
             # 2 -> 1
-            Dx = X_cartesian_int - R2
+            # centering integrals at center of cell2
+            Dx = X_cartesian_int + R2
             rho = density(Dx,P,S)
             vx_X = vx(rho)
             Vx_X[ii,jj,1] = vx_X
@@ -297,24 +298,31 @@ def LDA(orbitals,P,S):
             # loop over fuzzy cell functions
             for ii in range(n):
                 for jj in range(ii+1,n):
+                    # center of the first cell
+                    R1 = orbitals[ii].x
+                    # center of the secind cell
+                    R2 = orbitals[jj].x
+
+                    # 1 -> 2
                     vx_X = Vx_X[ii,jj,0]
+                    # centering integrals
+                    Dxx = X_cartesian_int + R1
                     # fuzzy cell weight function centered at 1
-                    wcell, _ = normalized_cell_functions(Dx,R1=R1,R2=R2)
+                    wcell, _ = normalized_cell_functions(Dxx,R1,R2)
                     # Chebyshev + Lebedenev quadrature + variable substitution for radial component (R/Mu)
                     Vx[i,j] += np.einsum(
                         'ij,ij',
-                        orbital_i(Dx)*orbital_j(Dx)*vx_X*wcell*np.sin(Phi_int)*R_int**2*2.0*rm/(1.0-Mu_int)**2,
+                        wcell*orbital_i(Dxx)*orbital_j(Dxx)*vx_X*R_int**2*2.0*rm/(1.0-Mu_int)**2,
                         Wint
                     )
+
                     # 2 -> 1
-#                    Dx = X_cartesian_int - R2
-#                    rho = density(Dx,P,S)
-#                    vx_X = vx(rho)
                     vx_X = Vx_X[ii,jj,1]
-                    wcell, _ = normalized_cell_functions(Dx,R1=R2,R2=R1)
+                    Dxx = X_cartesian_int + R2
+                    _, wcell = normalized_cell_functions(Dxx,R1,R2)
                     Vx[i,j] += np.einsum(
                         'ij,ij',
-                        orbital_i(Dx)*orbital_j(Dx)*vx_X*wcell*np.sin(Phi_int)*R_int**2*2.0*rm/(1.0-Mu_int)**2,
+                        wcell*orbital_i(Dxx)*orbital_j(Dxx)*vx_X*R_int**2*2.0*rm/(1.0-Mu_int)**2,
                         Wint
                     )
 
@@ -350,22 +358,24 @@ def energy(orbitals,Hcore,Vcoulomb,S,P):
         for jj in range(ii+1,n):
             R1 = orbitals[ii].x
             R2 = orbitals[jj].x
+
             # 1 -> 2
-            Dx = X_cartesian_int - R1
+            Dx = X_cartesian_int + R1
             rho = density(Dx,P,S)
-            wcell, _ = normalized_cell_functions(Dx,R1=R2,R2=R1)
+            wcell, _ = normalized_cell_functions(Dx,R1,R2)
             Exc += np.einsum(
                 'ij,ij',
-                rho*exc(rho)*np.sin(Phi_int)*R_int**2*2.0*rm/(1.0-Mu_int)**2,
+                wcell*rho*exc(rho)*R_int**2*2.0*rm/(1.0-Mu_int)**2,
                 Wint
             )
+
             # 2 -> 1
-            Dx = X_cartesian_int - R2
+            Dx = X_cartesian_int + R2
             rho = density(Dx,P,S)
-            wcell, _ = normalized_cell_functions(Dx,R1=R2,R2=R1)
+            _, wcell = normalized_cell_functions(Dx,R1,R2)
             Exc += np.einsum(
                 'ij,ij',
-                rho*exc(rho)*np.sin(Phi_int)*R_int**2*2.0*rm/(1.0-Mu_int)**2,
+                wcell*rho*exc(rho)*R_int**2*2.0*rm/(1.0-Mu_int)**2,
                 Wint
             )
     return Ecore , Ecoulomb , Exc
@@ -549,7 +559,7 @@ for i,d in enumerate(dlin):
     orbitals = (orbitalH1, orbitalH2)
 
     # scf loop
-    Ecore , Ecoulomb , Exc, P, eigval = scf_loop(orbitals,molecule,params)
+    Ecore , Ecoulomb , Exc, c, eigval = scf_loop(orbitals,molecule,params)
     Eelec = Ecore + Ecoulomb + Exc
 
     # proton-proton interaction
@@ -560,12 +570,15 @@ for i,d in enumerate(dlin):
     Ecoulomb_list.append(Ecoulomb)
     Exc_list.append(Exc)
     Epp_list.append(Epp)
+
+#    print('eig',eigval)
+#    print('-'*10)
+#    print('c',c)
+#    print('-'*10)
+#    print(f'Etotal = {Epp+Eelec}')
+#    print('-'*10)
     print(f"Opti {i+1}/{n} done!")
-#    print(eigval)
-#    print('-'*10)
-#    print(P)
-#    print('-'*10)
-#    print('-'*10)
+    print(f'c = {c[:,0]}\n')
 
 #results = pstats.Stats(profile)
 #results.sort_stats(pstats.SortKey.TIME)
@@ -578,10 +591,11 @@ plt.plot(dlin,Ecoulomb_list,marker='x',label='Coulomb')
 plt.plot(dlin,Exc_list,marker='x',label='xc')
 plt.plot(dlin,Epp_list,marker='x',label='pp')
 plt.legend()
-plt.savefig('Es.png')
+plt.savefig('Es_becke.png')
 
 plt.figure(2)
 plt.plot(dlin,E_list,marker='x')
 plt.xlabel('x (Angstrom)')
 plt.ylabel('E (Hartree)')
 plt.savefig('E_becke.png')
+
