@@ -312,7 +312,7 @@ def LDA(orbitals,P,S):
                     # Chebyshev + Lebedenev quadrature + variable substitution for radial component (R/Mu)
                     Vx[i,j] += np.einsum(
                         'ij,ij',
-                        wcell*orbital_i(Dxx)*orbital_j(Dxx)*vx_X*R_int**2*2.0*rm/(1.0-Mu_int)**2,
+                        wcell*orbital_i(Dxx)*orbital_j(Dxx)*vx_X*subs,
                         Wint
                     )
 
@@ -322,7 +322,7 @@ def LDA(orbitals,P,S):
                     _, wcell = normalized_cell_functions(Dxx,R1,R2)
                     Vx[i,j] += np.einsum(
                         'ij,ij',
-                        wcell*orbital_i(Dxx)*orbital_j(Dxx)*vx_X*R_int**2*2.0*rm/(1.0-Mu_int)**2,
+                        wcell*orbital_i(Dxx)*orbital_j(Dxx)*vx_X*subs,
                         Wint
                     )
 
@@ -365,7 +365,7 @@ def energy(orbitals,Hcore,Vcoulomb,S,P):
             wcell, _ = normalized_cell_functions(Dx,R1,R2)
             Exc += np.einsum(
                 'ij,ij',
-                wcell*rho*exc(rho)*R_int**2*2.0*rm/(1.0-Mu_int)**2,
+                wcell*rho*exc(rho)*subs,
                 Wint
             )
 
@@ -375,7 +375,7 @@ def energy(orbitals,Hcore,Vcoulomb,S,P):
             _, wcell = normalized_cell_functions(Dx,R1,R2)
             Exc += np.einsum(
                 'ij,ij',
-                wcell*rho*exc(rho)*R_int**2*2.0*rm/(1.0-Mu_int)**2,
+                wcell*rho*exc(rho)*subs,
                 Wint
             )
     return Ecore , Ecoulomb , Exc
@@ -406,7 +406,7 @@ def scf_loop(orbitals,molecule,params):
     Hcore = T + Vep
 
     # high enough initial random value
-    E = 1e2 
+    E = np.inf
 
     for _ in range(Niter):
 
@@ -450,7 +450,7 @@ def scf_loop(orbitals,molecule,params):
 ####################################
 # Quadrature weights/points
 # for radial component
-Nr = 30
+Nr = 50
 ii  = np.arange(1,Nr+1).reshape(-1,1) 
 sin_i = np.sin(ii*pi/(Nr+1))
 cos_i = np.cos(ii*pi/(Nr+1))
@@ -503,6 +503,8 @@ del(Mu_quadrature,R_quadrature,Wr_quadrature)
 del(ThetaPhi_quadrature,Wangular_quadrature)
 del(R,Theta,Phi)
 
+subs = R_int**2*2.0*rm/(1.0-Mu_int)**2
+
 # parameters of the simulation
 # coefficients of the gaussians
 alpha1 = 0.3425250914E+01
@@ -516,7 +518,7 @@ c3 = 0.4446345422E+00
 coeff = np.array([c1,c2,c3])
 
 # distance between the Hs
-n = 10
+n = 50
 dlin = np.linspace(0.4,15,n)
 
 # parameters of the scp loop
@@ -571,14 +573,10 @@ for i,d in enumerate(dlin):
     Exc_list.append(Exc)
     Epp_list.append(Epp)
 
-#    print('eig',eigval)
-#    print('-'*10)
-#    print('c',c)
-#    print('-'*10)
-#    print(f'Etotal = {Epp+Eelec}')
-#    print('-'*10)
     print(f"Opti {i+1}/{n} done!")
-    print(f'c = {c[:,0]}\n')
+    print(f'intermolecular distance = {d} Angstrom')
+    print(f'c = {c[:,0]}')
+    print(f'eigenvalue = {eigval[0]}\n')
 
 #results = pstats.Stats(profile)
 #results.sort_stats(pstats.SortKey.TIME)
@@ -591,6 +589,7 @@ plt.plot(dlin,Ecoulomb_list,marker='x',label='Coulomb')
 plt.plot(dlin,Exc_list,marker='x',label='xc')
 plt.plot(dlin,Epp_list,marker='x',label='pp')
 plt.legend()
+plt.xlabel('x (Angstrom)')
 plt.savefig('Es_becke.png')
 
 plt.figure(2)
@@ -599,3 +598,30 @@ plt.xlabel('x (Angstrom)')
 plt.ylabel('E (Hartree)')
 plt.savefig('E_becke.png')
 
+plt.figure(3)
+plt.title('Core energy (kinetic + proton-electron interaction) energy')
+plt.plot(dlin,Ecore_list,marker='x')
+plt.xlabel('x (Angstrom)')
+plt.ylabel('E (Hartree)')
+plt.savefig('Ecore.png')
+
+plt.figure(4)
+plt.title('Electron Coulomb interaction energy')
+plt.plot(dlin,Ecoulomb_list,marker='x')
+plt.xlabel('x (Angstrom)')
+plt.ylabel('E (Hartree)')
+plt.savefig('Ecoulomb.png')
+
+plt.figure(5)
+plt.title('Exchange energy')
+plt.plot(dlin,Exc_list,marker='x')
+plt.xlabel('x (Angstrom)')
+plt.ylabel('E (Hartree)')
+plt.savefig('Exc.png')
+
+plt.figure(6)
+plt.title('Proton repulsion energy')
+plt.plot(dlin,Epp_list,marker='x')
+plt.xlabel('x (Angstrom)')
+plt.ylabel('E (Hartree)')
+plt.savefig('Epp.png')
