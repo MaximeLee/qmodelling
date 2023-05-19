@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from becke_partitionning import normalized_cell_functions
 
 pi = np.pi
-seed = 123
+seed = 12
 np.random.seed(seed)
 
 #############################################
@@ -231,27 +231,42 @@ def Coulomb(Vee,P):
     Vcoulomb = np.einsum('ijkl,kl->ij',Vee,P) 
     return Vcoulomb
 
-def density(X,P,S):
+def density(rho,orbitals,P,S):
     """computing density at each points of discretized grid
 
     X : Points where to compute density
     P : density matrix
     S : overlap matrix
     """
-    B = np.hstack([orbital(X) for orbital in orbitals])
-    BB = np.einsum('ni,nj->nij',B,B)
-    rho = np.einsum('ij,nij->n',P,BB).reshape(-1,1) 
+    n = len(orbitals)
+
+    # computing volumic functionnal potential beforehand
+    for ii in range(n):
+        for jj in range(ii+1,n):
+            # center of the first cell
+            R1 = orbitals[ii].x
+            # center of the secind cell
+            R2 = orbitals[jj].x
+
+            # 1 -> 2
+            # centering integrals at center of cell 1
+            Dx = X_cartesian_int + R1
+            B = np.hstack([orbital(Dx) for orbital in orbitals])
+            BB = np.einsum('ni,nj->nij',B,B)
+            rho[ii,jj,0] = np.einsum('ij,nij->n',P,BB).reshape(-1,1) 
+
+            # 2 -> 1
+            # centering integrals at center of cell2
+            Dx = X_cartesian_int + R2
+            B = np.hstack([orbital(Dx) for orbital in orbitals])
+            BB = np.einsum('ni,nj->nij',B,B)
+            rho[ii,jj,1] = np.einsum('ij,nij->n',P,BB).reshape(-1,1) 
 
     # L1-normalization the density with Density and Overlap matrices
     norm = np.einsum('ij,ij',P,S)
     return rho/norm
 
-def vx(rho):
-    """volumic LDA-functionnal"""
-    return -(3.0*rho/pi)**(1/3)
-
-
-def LDA(orbitals,P,S):
+def LDA(orbitals,rho):
     """LDA operator in atomic orbital basis
 
     orbitals : list containing AO objects
@@ -269,23 +284,14 @@ def LDA(orbitals,P,S):
     # computing volumic functionnal potential beforehand
     for ii in range(n):
         for jj in range(ii+1,n):
-            # center of the first cell
-            R1 = orbitals[ii].x
-            # center of the secind cell
-            R2 = orbitals[jj].x
-
             # 1 -> 2
             # centering integrals at center of cell 1
-            Dx = X_cartesian_int + R1
-            rho = density(Dx,P,S)
-            vx_X = vx(rho)
+            vx_X = vxc(rho[ii,jj,0])
             Vx_X[ii,jj,0] = vx_X
 
             # 2 -> 1
             # centering integrals at center of cell2
-            Dx = X_cartesian_int + R2
-            rho = density(Dx,P,S)
-            vx_X = vx(rho)
+            vx_X = vxc(rho[ii,jj,1])
             Vx_X[ii,jj,1] = vx_X
 
     # loop over AO
@@ -310,7 +316,7 @@ def LDA(orbitals,P,S):
                     # fuzzy cell weight function centered at 1
                     wcell, _ = normalized_cell_functions(Dxx,R1,R2)
                     # Chebyshev + Lebedenev quadrature + variable substitution for radial component (R/Mu)
-                    Vx[i,j] += np.einsum(
+                    Vx[i,j] += 4.0*pi*np.einsum(
                         'ij,ij',
                         wcell*orbital_i(Dxx)*orbital_j(Dxx)*vx_X*subs,
                         Wint
@@ -320,7 +326,7 @@ def LDA(orbitals,P,S):
                     vx_X = Vx_X[ii,jj,1]
                     Dxx = X_cartesian_int + R2
                     _, wcell = normalized_cell_functions(Dxx,R1,R2)
-                    Vx[i,j] += np.einsum(
+                    Vx[i,j] += 4.0*pi*np.einsum(
                         'ij,ij',
                         wcell*orbital_i(Dxx)*orbital_j(Dxx)*vx_X*subs,
                         Wint
@@ -334,11 +340,20 @@ def density_matrix(c):
     c = c[:,0:1]
     return  2.0 * c@c.T
 
+
+def vxc(rho):
+    """volumic LDA-functionnal"""
+    vx = -(3.0*rho/pi)**(1/3)
+    vc = 0.0
+    return vx + vc
+
 def exc(rho):
     """volumic exchance-correlation energy"""
-    return -(3.0/4.0)*(3.0/pi*rho)**(1/3)
+    ex = -(3.0/4.0)*(3.0/pi*rho)**(1/3)
+    ec = 0.0
+    return ex + ec 
 
-def energy(orbitals,Hcore,Vcoulomb,S,P):
+def energy(rho,orbitals,Hcore,Vcoulomb,P):
     """computing energy of the system
     orbitals : list of AO objects
     Hcore : Core Hamiltonian in AO basis
@@ -347,13 +362,12 @@ def energy(orbitals,Hcore,Vcoulomb,S,P):
     P : density matrix
     """
     Ecore    = np.sum(P*Hcore)
-    Ecoulomb = np.sum(P*Vcoulomb)/2.0
-    #rho      = density(Xint,orbitals,P)
-    #Exc      = np.sum(rho*exc(rho))*dx**3
+    Ecoulomb = np.sum(P*Vcoulomb*0.5)
 
     Exc = 0.0
-    n = len(orbitals)
+
     # loop over fuzzy cells
+    n = len(orbitals)
     for ii in range(n):
         for jj in range(ii+1,n):
             R1 = orbitals[ii].x
@@ -361,21 +375,19 @@ def energy(orbitals,Hcore,Vcoulomb,S,P):
 
             # 1 -> 2
             Dx = X_cartesian_int + R1
-            rho = density(Dx,P,S)
             wcell, _ = normalized_cell_functions(Dx,R1,R2)
-            Exc += np.einsum(
+            Exc += 4.0*pi*np.einsum(
                 'ij,ij',
-                wcell*rho*exc(rho)*subs,
+                wcell*rho[ii,jj,0]*exc(rho[ii,jj,0])*subs,
                 Wint
             )
 
             # 2 -> 1
             Dx = X_cartesian_int + R2
-            rho = density(Dx,P,S)
             _, wcell = normalized_cell_functions(Dx,R1,R2)
-            Exc += np.einsum(
+            Exc += 4.0*pi*np.einsum(
                 'ij,ij',
-                wcell*rho*exc(rho)*subs,
+                wcell*rho[ii,jj,1]*exc(rho[ii,jj,1])*subs,
                 Wint
             )
     return Ecore , Ecoulomb , Exc
@@ -386,21 +398,22 @@ def scf_loop(orbitals,molecule,params):
     Niter = params['Niter']
     n = len(orbitals)
 
-#    # computing product of AO at each integration points
-#    B = np.hstack([orbital(Xint) for orbital in orbitals])
-#    BB = np.einsum('ni,nj->nij',B,B)
-
     # density matrix
-    P = np.random.uniform(size=[n,n])#np.zeros([n,n])
+    #P = np.random.uniform(size=[n,n])
+    P = np.zeros([n,n])
+
+    # values of density at quadrature points around each Hydrogen atom 
+    # initial density at zero
+    rho = np.zeros([n,n,2,len(X_cartesian_int),1]) 
 
     # compute integrals 
     T   = T_int(orbitals)
     Vep = Vep_int(orbitals,molecule)
     Vee = Vee_int(orbitals)
+
     S = overlap_int(orbitals)
     S12 = linalg.sqrtm(S)
     S_12 = linalg.inv(S12)
-    del(S12)
 
     # core Hamiltonian
     Hcore = T + Vep
@@ -417,7 +430,7 @@ def scf_loop(orbitals,molecule,params):
         Vcoulomb = Coulomb(Vee,P)
 
         # exchange-correlation functionnal
-        Vx, Vc = LDA(orbitals,P,S)
+        Vx, Vc = LDA(orbitals,rho)
 
         # Fock operator 
         F = Hcore + Vcoulomb + Vx + Vc
@@ -432,14 +445,13 @@ def scf_loop(orbitals,molecule,params):
 
         # compute new density
         #rho = density(Xint,orbitals,P)
-        # rho = density(X_cartesian_int,BB,P)
+        rho = density(rho,orbitals,P,S)
 
         # compute energy
-        Ecore , Ecoulomb , Exc = energy(orbitals,Hcore,Vcoulomb,S,P)
+        Ecore , Ecoulomb , Exc = energy(rho,orbitals,Hcore,Vcoulomb,P)
         E = Ecore + Ecoulomb + Exc
 
         if abs(E-E_old) < tol:
-        #if abs(E-E_old) < tol*abs(E):
             return Ecore , Ecoulomb , Exc, c, eigval
 
     print('Not converged...')
@@ -450,7 +462,7 @@ def scf_loop(orbitals,molecule,params):
 ####################################
 # Quadrature weights/points
 # for radial component
-Nr = 50
+Nr = 100
 ii  = np.arange(1,Nr+1).reshape(-1,1) 
 sin_i = np.sin(ii*pi/(Nr+1))
 cos_i = np.cos(ii*pi/(Nr+1))
@@ -481,8 +493,8 @@ X_spherical_int = np.concatenate([
     ],
     axis=1
 )
-Phi_int = X_spherical_int[:,2:3]
 R_int   = X_spherical_int[:,0:1]
+Phi_int = X_spherical_int[:,2:3]
 Mu_int  = (R_int - rm)/(R_int + rm)
 Wint = np.concatenate([
         np.tile(Wr_quadrature,(len(Wangular_quadrature),1)),
@@ -518,11 +530,11 @@ c3 = 0.4446345422E+00
 coeff = np.array([c1,c2,c3])
 
 # distance between the Hs
-n = 50
-dlin = np.linspace(0.4,15,n)
+n = 100
+dlin = np.linspace(0.4,20,n)
 
 # parameters of the scp loop
-params = {'tol':1e-7,'Niter':200}
+params = {'tol':1e-8,'Niter':200}
 
 E_list = []
 Ecore_list = []
@@ -561,7 +573,7 @@ for i,d in enumerate(dlin):
     orbitals = (orbitalH1, orbitalH2)
 
     # scf loop
-    Ecore , Ecoulomb , Exc, c, eigval = scf_loop(orbitals,molecule,params)
+    Ecore , Ecoulomb , Exc, _, _ = scf_loop(orbitals,molecule,params)
     Eelec = Ecore + Ecoulomb + Exc
 
     # proton-proton interaction
@@ -574,9 +586,9 @@ for i,d in enumerate(dlin):
     Epp_list.append(Epp)
 
     print(f"Opti {i+1}/{n} done!")
-    print(f'intermolecular distance = {d} Angstrom')
-    print(f'c = {c[:,0]}')
-    print(f'eigenvalue = {eigval[0]}\n')
+#    print(f'intermolecular distance = {d} Angstrom')
+#    print(f'c = {c[:,0]}')
+    #print(f'eigenvalue = {eigval[0]}\n')
 
 #results = pstats.Stats(profile)
 #results.sort_stats(pstats.SortKey.TIME)
