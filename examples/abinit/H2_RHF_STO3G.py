@@ -246,20 +246,12 @@ alpha1 = 0.3425250914E+01
 alpha2 = 0.6239137298E+00
 alpha3 = 0.1688554040E+00
 
-PG1 = PrimitiveGaussian(alpha1)
-PG2 = PrimitiveGaussian(alpha2) 
-PG3 = PrimitiveGaussian(alpha3) 
-
 c1 = 0.1543289673E+00 
 c2 = 0.5353281423E+00
 c3 = 0.4446345422E+00
 coeff = (c1, c2, c3)
-basis = (PG1, PG2, PG3) 
-
-orbit = Orbital(coeff,basis)
-
-n = 500
-dlin = np.linspace(0.4,10,n)
+n = 100
+dlin = np.linspace(0.4,20,n)
 
 Etot = []
 
@@ -268,9 +260,23 @@ for d in dlin:
     x1 = np.array([0.0, 0.0, 0.0])
     x2 = np.array([0.0, 0.0, d  ])
     
+    PG11 = PrimitiveGaussian(alpha1,x0=x1)
+    PG21 = PrimitiveGaussian(alpha2,x0=x1) 
+    PG31 = PrimitiveGaussian(alpha3,x0=x1)  
+
+    PG12 = PrimitiveGaussian(alpha1,x0=x2)
+    PG22 = PrimitiveGaussian(alpha2,x0=x2) 
+    PG32 = PrimitiveGaussian(alpha3,x0=x2)  
+
+    basis1 = (PG11, PG21, PG31)
+    basis2 = (PG12, PG22, PG32)
+
+    orbit1 = Orbital(coeff,basis1)
+    orbit2 = Orbital(coeff,basis2)
+
     Z = 1
-    H_1 = Atom(Z,x1,orbit) 
-    H_2 = Atom(Z,x2,orbit)
+    H_1 = Atom(Z,x1,orbit1) 
+    H_2 = Atom(Z,x2,orbit2)
     
     HH = (H_1, H_2)
     
