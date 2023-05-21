@@ -42,8 +42,6 @@ class Orbital:
         for i in range(n):
             y += coeff[i]*basis[i](X)
 
-#        basisX = np.stack([b(X).flatten() for b in basis],axis=1)
-#        y = np.einsum('m,nm',coeff,basisX)
         return y.reshape(-1,1)
 
 #############################################
@@ -231,7 +229,7 @@ def Coulomb(Vee,P):
     Vcoulomb = np.einsum('ijkl,kl->ij',Vee,P) 
     return Vcoulomb
 
-def density(rho,orbitals,P,S):
+def density(rho,orbitals,P,S,BB):
     """computing density at each points of discretized grid
 
     X : Points where to compute density
@@ -251,16 +249,12 @@ def density(rho,orbitals,P,S):
             # 1 -> 2
             # centering integrals at center of cell 1
             Dx = X_cartesian_int + R1
-            B = np.hstack([orbital(Dx) for orbital in orbitals])
-            BB = np.einsum('ni,nj->nij',B,B)
-            rho[ii,jj,0] = np.einsum('ij,nij->n',P,BB).reshape(-1,1) 
+            rho[ii,jj,0] = np.einsum('ij,nij->n',P,BB[ii,jj,0]).reshape(-1,1) 
 
             # 2 -> 1
             # centering integrals at center of cell2
             Dx = X_cartesian_int + R2
-            B = np.hstack([orbital(Dx) for orbital in orbitals])
-            BB = np.einsum('ni,nj->nij',B,B)
-            rho[ii,jj,1] = np.einsum('ij,nij->n',P,BB).reshape(-1,1) 
+            rho[ii,jj,1] = np.einsum('ij,nij->n',P,BB[ii,jj,1]).reshape(-1,1) 
 
     # L1-normalization the density with Density and Overlap matrices
     norm = np.einsum('ij,ij',P,S)
@@ -274,25 +268,24 @@ def LDA(orbitals,rho):
     S : overlap matrix
     """
     n = len(orbitals)
-    Vc = 0.0
-    Vx = np.zeros([n,n])
+    Vxc = np.zeros([n,n])
 
     # storing values of exchange-correlation function evaluated at 
     # quadrature points centered at each fuzz cell centers
-    Vx_X = np.empty([n,n,2,len(X_cartesian_int),1])
+    Vxc_X = np.empty([n,n,2,len(X_cartesian_int),1])
 
     # computing volumic functionnal potential beforehand
     for ii in range(n):
         for jj in range(ii+1,n):
             # 1 -> 2
             # centering integrals at center of cell 1
-            vx_X = vxc(rho[ii,jj,0])
-            Vx_X[ii,jj,0] = vx_X
+            vxc_X = vxc(rho[ii,jj,0])
+            Vxc_X[ii,jj,0] = vxc_X
 
             # 2 -> 1
             # centering integrals at center of cell2
-            vx_X = vxc(rho[ii,jj,1])
-            Vx_X[ii,jj,1] = vx_X
+            vxc_X = vxc(rho[ii,jj,1])
+            Vxc_X[ii,jj,1] = vxc_X
 
     # loop over AO
     for i in range(n):
@@ -310,29 +303,29 @@ def LDA(orbitals,rho):
                     R2 = orbitals[jj].x
 
                     # 1 -> 2
-                    vx_X = Vx_X[ii,jj,0]
+                    vxc_X = Vxc_X[ii,jj,0]
                     # centering integrals
                     Dxx = X_cartesian_int + R1
                     # fuzzy cell weight function centered at 1
                     wcell, _ = normalized_cell_functions(Dxx,R1,R2)
                     # Chebyshev + Lebedenev quadrature + variable substitution for radial component (R/Mu)
-                    Vx[i,j] += 4.0*pi*np.einsum(
+                    Vxc[i,j] += 4.0*pi*np.einsum(
                         'ij,ij',
-                        wcell*orbital_i(Dxx)*orbital_j(Dxx)*vx_X*subs,
+                        wcell*orbital_i(Dxx)*orbital_j(Dxx)*vxc_X*subs,
                         Wint
                     )
 
                     # 2 -> 1
-                    vx_X = Vx_X[ii,jj,1]
+                    vxc_X = Vxc_X[ii,jj,1]
                     Dxx = X_cartesian_int + R2
                     _, wcell = normalized_cell_functions(Dxx,R1,R2)
-                    Vx[i,j] += 4.0*pi*np.einsum(
+                    Vxc[i,j] += 4.0*pi*np.einsum(
                         'ij,ij',
-                        wcell*orbital_i(Dxx)*orbital_j(Dxx)*vx_X*subs,
+                        wcell*orbital_i(Dxx)*orbital_j(Dxx)*vxc_X*subs,
                         Wint
                     )
 
-    return Vx,Vc
+    return Vxc
 
 
 def density_matrix(c):
@@ -340,18 +333,64 @@ def density_matrix(c):
     c = c[:,0:1]
     return  2.0 * c@c.T
 
-
-def vxc(rho):
-    """volumic LDA-functionnal"""
-    vx = -(3.0*rho/pi)**(1/3)
-    vc = 0.0
-    return vx + vc
+# Vosko, Wilk, Nusair correlation constants
+A = 0.0621814
+x0 = -0.409286
+b = 13.072
+c = 42.7198
+Q = (4*c-b**2)**0.5
+eps = 1e-6
+rinf = 1e6
 
 def exc(rho):
     """volumic exchance-correlation energy"""
-    ex = -(3.0/4.0)*(3.0/pi*rho)**(1/3)
-    ec = 0.0
+    # Dirac exchange
+    ex  = -(3.0/4.0)*(3.0/pi*rho)**(1/3)
+    ex *= 9.0/8.0
+    #ex = -(3.0)*(3.0/4.0/pi*rho)**(1.0/3.0)
+
+    # Vosko, Wilk, Nusair correlation
+    def X(arg):
+        return arg**2.0 + b*arg + c
+
+    rs = np.where(rho>eps,(3.0/(4.0*pi*(rho+1e-8)))**(1.0/3.0),rinf)
+    x  = np.sqrt(rs)
+    term1 = np.log(x**2/X(x))
+    term2 = 2*b/Q*np.arctan(Q/(2*x+b))
+    term3 = b*x0/X(x0)*(np.log((x-x0)**2/X(x)) + 2*(b+2*x0)/Q*np.arctan(Q/(2*x+b)) )
+
+    ec = A/2.0*(term1 + term2 - term3 )
     return ex + ec 
+
+def vxc(rho):
+    """volumic LDA-functionnal"""
+    # Dirac exchange
+    vx = -9.0/8.0*(3.0*rho/pi)**(1.0/3.0)
+    #vx = -4.0*(3.0/4.0*rho/pi)**(1.0/3.0)
+
+    # Vosko, Wilk, Nusair correlation
+    def X(arg):
+        return arg**2.0 + b*arg + c
+
+    rs = np.where(rho>eps,(3.0/(4.0*pi*(rho+1e-8)))**(1.0/3.0),rinf)
+    x  = np.sqrt(rs)
+    Xx = X(x)
+    term1 = np.log(x**2/Xx)
+    term2 = 2*b/Q*np.arctan(Q/(2*x+b))
+    term3 = b*x0/X(x0)*(np.log((x-x0)**2/Xx) + 2*(b+2*x0)/Q*np.arctan(Q/(2*x+b)) )
+
+    ec = A/2.0*(term1 + term2 - term3 )
+
+    term1 = (2*Xx-x*(2*x+b))/(Xx*x) 
+    term2 = -4*b/((2*x+b)**2 + Q**2) 
+    term31 = (2*Xx-(2*x+b)*(x-x0))/(Xx*(x-x0))
+    term32 = -4*(2*x0+b)/((2*x+b)**2 + Q**2)
+    term3 = b*x0/X(x0)*(term31 + term32) 
+    ec_rho = A/2.0*(term1 + term2 - term3 )
+
+    vc = rho*ec_rho + ec
+#    vc = 0.0
+    return vx + vc
 
 def energy(rho,orbitals,Hcore,Vcoulomb,P):
     """computing energy of the system
@@ -397,6 +436,29 @@ def scf_loop(orbitals,molecule,params):
     tol = params['tol']
     Niter = params['Niter']
     n = len(orbitals)
+    # damping constant
+    #alpha = 0.5
+
+    # values of product of the AO over space
+    BB = np.zeros([n,n,2,len(X_cartesian_int),n,n])
+    for ii in range(n):
+        for jj in range(ii+1,n):
+            # center of the first cell
+            R1 = orbitals[ii].x
+            # center of the secind cell
+            R2 = orbitals[jj].x
+
+            # 1 -> 2
+            # centering integrals at center of cell 1
+            Dx = X_cartesian_int + R1
+            B = np.hstack([orbital(Dx) for orbital in orbitals])
+            BB[ii,jj,0] = np.einsum('ni,nj->nij',B,B)
+
+            # 2 -> 1
+            # centering integrals at center of cell2
+            Dx = X_cartesian_int + R2
+            B = np.hstack([orbital(Dx) for orbital in orbitals])
+            BB[ii,jj,1] = np.einsum('ni,nj->nij',B,B)
 
     # density matrix
     #P = np.random.uniform(size=[n,n])
@@ -424,6 +486,7 @@ def scf_loop(orbitals,molecule,params):
     for _ in range(Niter):
 
         # save Energy from last iteration
+        #P_old = dcp(P)
         E_old = E
         
         # coulomb interactions
@@ -431,7 +494,7 @@ def scf_loop(orbitals,molecule,params):
 
         # exchange-correlation functionnal
         Vx, Vc = LDA(orbitals,rho)
-
+    
         # Fock operator 
         F = Hcore + Vcoulomb + Vx + Vc
 
@@ -442,10 +505,11 @@ def scf_loop(orbitals,molecule,params):
 
         # density matrix
         P = density_matrix(c)
+#        P = alpha*P + (1.0-alpha)*P_old
 
         # compute new density
         #rho = density(Xint,orbitals,P)
-        rho = density(rho,orbitals,P,S)
+        rho = density(rho,orbitals,P,S,BB)
 
         # compute energy
         Ecore , Ecoulomb , Exc = energy(rho,orbitals,Hcore,Vcoulomb,P)
@@ -462,7 +526,7 @@ def scf_loop(orbitals,molecule,params):
 ####################################
 # Quadrature weights/points
 # for radial component
-Nr = 100
+Nr = 50
 ii  = np.arange(1,Nr+1).reshape(-1,1) 
 sin_i = np.sin(ii*pi/(Nr+1))
 cos_i = np.cos(ii*pi/(Nr+1))
@@ -534,7 +598,7 @@ n = 100
 dlin = np.linspace(0.4,20,n)
 
 # parameters of the scp loop
-params = {'tol':1e-8,'Niter':200}
+params = {'tol':1e-6,'Niter':200}
 
 E_list = []
 Ecore_list = []
@@ -586,9 +650,6 @@ for i,d in enumerate(dlin):
     Epp_list.append(Epp)
 
     print(f"Opti {i+1}/{n} done!")
-#    print(f'intermolecular distance = {d} Angstrom')
-#    print(f'c = {c[:,0]}')
-    #print(f'eigenvalue = {eigval[0]}\n')
 
 #results = pstats.Stats(profile)
 #results.sort_stats(pstats.SortKey.TIME)
@@ -629,7 +690,7 @@ plt.title('Exchange energy')
 plt.plot(dlin,Exc_list,marker='x')
 plt.xlabel('x (Angstrom)')
 plt.ylabel('E (Hartree)')
-plt.savefig('Exc.png')
+plt.savefig('Exc_VWN.png')
 
 plt.figure(6)
 plt.title('Proton repulsion energy')
