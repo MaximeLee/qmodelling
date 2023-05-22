@@ -1,0 +1,47 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.2.0
+    hooks:
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: check-added-large-files
+
+-   repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.3.0
+    hooks:
+    -   id: mypy
+
+-   repo: https://github.com/pre-commit/mirrors-prettier
+    rev: v3.0.0-alpha.9-for-vscode  # Use the sha / tag you want to point at
+    hooks:
+    -   id: prettier
+
+-   repo: https://github.com/psf/black
+    rev: 23.3.0
+    hooks:
+    -   id: black
+
+-   repo: https://github.com/pycqa/pylint
+    rev: v3.0.0a6
+    hooks:
+    -   id: pylint
+
+-   repo: https://github.com/PyCQA/doc8
+    rev: v1.1.1
+    hooks:
+    -   id: doc8
+
+-   repo: https://github.com/PyCQA/autoflake
+    rev: v2.1.1
+    hooks:
+    -   id: autoflake
+
+#-   repo: local
+#    name: flake8
+#    hooks:
+#    - id: flake8
+
+default_language_version:
+    python: python3.10

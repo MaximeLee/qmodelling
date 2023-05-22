@@ -1,0 +1,10 @@
+
+[FORMAT]
+max-line-length=200
+
+[design]
+max-locals = 50
+
+[MESSAGES CONTROL]
+disable=C0103,
+        R0903
