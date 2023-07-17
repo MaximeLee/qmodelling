@@ -2,7 +2,7 @@ from qmodelling.func.basis import Basis
 import numpy as np
 import math as m
 from scipy import special
- 
+
 pi = np.pi
 
 def boys(x):
@@ -14,7 +14,7 @@ def boys(x):
 
 class PrimitiveGaussian(Basis):
     """Primitive Gaussian class
-    
+
     only considering 1s orbital atm
 
     alpha : parameter of the gaussian function
@@ -24,7 +24,7 @@ class PrimitiveGaussian(Basis):
         self.alpha = alpha
         self.x0 = x0
         # normalizing constant
-        self.A     = ( 2.0 * alpha / pi ) ** 0.75 
+        self.A     = ( 2.0 * alpha / pi ) ** 0.75
 
     def __call__(self,x):
         dxx2 = np.sum((x-self.x0)**2,axis=1,keepdims=True)
@@ -42,8 +42,8 @@ class PrimitiveGaussian(Basis):
         dr = x2 - xmean
         dr2 = np.inner(dr,dr)
 
-        k_int  = -2 * a2**2 * dr2  * overlap  
-        k_int += -3 * a2**2 / a1p2 * overlap 
+        k_int  = -2 * a2**2 * dr2  * overlap
+        k_int += -3 * a2**2 / a1p2 * overlap
         k_int +=  3 * a2           * overlap
         return k_int
 
@@ -51,11 +51,11 @@ class PrimitiveGaussian(Basis):
     def electron_electron_int(cls,basis1,basis2,basis3,basis4):
         """electron-electron integral"""
         A1234 = basis1.A * basis2.A * basis3.A * basis4.A
-        
-        x1 = basis1.x0 
-        x2 = basis2.x0 
-        x3 = basis3.x0 
-        x4 = basis4.x0 
+
+        x1 = basis1.x0
+        x2 = basis2.x0
+        x3 = basis3.x0
+        x4 = basis4.x0
 
         a1 = basis1.alpha
         a2 = basis2.alpha
@@ -64,18 +64,18 @@ class PrimitiveGaussian(Basis):
 
         a12  = a1 * a2
         ap12 = a1 + a2
-        x12 = x1 - x2 
+        x12 = x1 - x2
         x12_2 = np.inner(x12,x12)
         e12 = m.exp(-a12/ap12*x12_2)
-        
+
         a43  = a4 * a3
         ap43 = a4 + a3
-        x43 = x4 - x3 
+        x43 = x4 - x3
         x43_2 = np.inner(x43,x43)
         e43 = m.exp(-a43/ap43*x43_2)
 
         ap1234 = ap12 + ap43
-        
+
         x43_mean = (a4*x4+a3*x3)/(ap43)
         x12_mean = (a1*x1+a2*x2)/(ap12)
         x12_43 = x12_mean - x43_mean
@@ -108,12 +108,11 @@ class PrimitiveGaussian(Basis):
 
         alpha1 , alpha2 = basis1.alpha , basis2.alpha
         alpha_1p2 = alpha1 + alpha2
-         
+
         x1 , x2 = basis1.x0 , basis2.x0
         dr = x2-x1
-        dr2 = np.inner(dr,dr) 
+        dr2 = np.inner(dr,dr)
         e12 = m.exp(-alpha1*alpha2/alpha_1p2*dr2)
 
         G = (pi/alpha_1p2)**(3/2)
-        return AA*e12*G 
-
+        return AA*e12*G

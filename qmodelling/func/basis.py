@@ -25,4 +25,3 @@ class Basis(ABC):
     @abstractmethod
     def overlap_int(cls,basis1,basis2):
         """overlap integral"""
-
