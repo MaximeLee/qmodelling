@@ -1,20 +1,30 @@
-from copy import deepcopy as dcp
+"""Molecule class"""
+from mendeleev import element
+import sqlalchemy
 
-class Atom:
-    """Atom class
-    Z       : atomic number
-    x0      : position of the atom
-    orbital : atomic orbital as a list of basis functions
-    """
-    def __init__(self,Z,x,orbital):
-        self.Z = Z
-        self.orbital = dcp(orbital)
-        self.nbasis = len(orbital.basis)
-        self.x = x
-        for b in self.orbital.basis:
-            b.x = x
 
 class Molecule:
-    def __init__(self,atoms):
-        self.atoms = atoms
-        self.n = len(atoms)
+    """
+    atomic_numbers (list) :
+    atomic_positions (list) : stores atomic positions as numpy arrays ?
+    """
+
+    def __init__(self):
+        self.natoms = 0
+        self.atomic_symbols = []
+        self.atomic_numbers = []
+        self.atomic_positions = []
+
+    def add_atom(self, symbol, atom_position):
+        """add an Atom to the molecule
+        Symbol (str)
+        atom_position ([], tuple, np.array())
+        """
+        try:
+            Z = element(symbol).atomic_number
+            self.atomic_numbers.append(Z)
+        except sqlalchemy.exc.NoResultFound as AtomNotFound:
+            raise ValueError("Unknown atom") from AtomNotFound
+        self.atomic_positions.append(atom_position)
+        self.atomic_symbols.append(symbol)
+        self.natoms += 1
