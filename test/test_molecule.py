@@ -1,24 +1,19 @@
-from qmodelling.molecule import Molecule, Atom
-from qmodelling.func.orbital import Orbital
-from qmodelling.func.primitivegaussian import PrimitiveGaussian
+from qmodelling.molecule import Molecule
+import numpy as np
+import pytest
+
+dim = 3
+molec = Molecule()
 
 class TestMolecule:
 
-    def testAtom(self):
-        Z = 5
-        coo = [5.0 , 6.0]
-        PG = PrimitiveGaussian(5.6)
-        basis = [PG]
-        orbital = Orbital(None,basis)
-        Atom(Z,coo,orbital)
+    def test_add_atom(self):
+        
+        atoms = ['H', 'He', 'Li']
 
-    def testMolecule(self):
-        Z = 1
-        coo1 = [0.0 , 0.0]
-        PG = PrimitiveGaussian(5.6)
-        basis = [PG]
-        orbital = Orbital(None,basis)
-        H1 = Atom(Z,coo1,orbital)
-        coo2 = [0.0 , 1.0]
-        H2 = Atom(Z,coo2,orbital)
-        Molecule([H1, H2])
+        for atom in atoms:
+            molec.add_atom(atom, np.random.uniform(size=[1,dim]))
+
+    def test_add_atom_exception(self):
+        with pytest.raises(ValueError):
+            molec.add_atom('HHH', [0, 0, 0])
