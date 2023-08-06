@@ -4,7 +4,7 @@ Quantum chemistry codes examples
 # Installation
 
 ```shell
-#create your pip env : 
+#create your pip env :
 
 python3 -m venv env
 
