@@ -2,7 +2,7 @@
 import numpy as np
 import math
 from qmodelling.integral.quadrature import get_quadrature_points
-from qmodelling.basis.primitive_gaussian import PrimitiveGaussian
+from qmodelling.basis.primitive_gaussian import PrimitiveGaussian, integral
 
 npts = 50
 atol = 1e-16
@@ -34,7 +34,7 @@ class TestQuadrature:
 
         for n in range(20):
 
-            I_true = PrimitiveGaussian.integral(a, n)
+            I_true = integral(a, n)
             integrand = angular_gaussian(np.arctanh(abscissa), n, a) / (1.0 - abscissa**2.0)
             I_quadrature = np.dot(weights, integrand)
             

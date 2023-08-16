@@ -1,7 +1,8 @@
 """Testing primitive Gaussians"""
-from qmodelling.basis.primitive_gaussian import PrimitiveGaussian
+from qmodelling.basis.primitive_gaussian import PrimitiveGaussian, integral, normalization_constant, Chebyshev_quadrature_points_01
 import math as m
 import numpy as np
+import time
 from constants import *
 from utils import *
 
@@ -26,7 +27,7 @@ class TestPrimitiveGaussian:
 
     def test_quadrature_points(self):
         """test Chebyshev quadrature on function over [0,1]"""
-        data = PrimitiveGaussian.Chebyshev_quadrature_points_01
+        data = Chebyshev_quadrature_points_01
 
         assert np.all(data[:,1]<1.0)
         assert m.isclose(np.sum(data[:,0]),1.0)
@@ -41,13 +42,13 @@ class TestPrimitiveGaussian:
         """testing PrimitiveGaussian.integral"""
 
         # testing odd exponent
-        assert m.isclose(PrimitiveGaussian.integral(alpha, 1), 0.0)
+        assert m.isclose(integral(alpha, 1), 0.0)
 
         # testing even exponents 0, 2, 4
-        assert m.isclose(PrimitiveGaussian.integral(alpha, 0), G_alpha)
-        assert m.isclose(PrimitiveGaussian.integral(alpha, 2), G_alpha / (2.0 * alpha))
+        assert m.isclose(integral(alpha, 0), G_alpha)
+        assert m.isclose(integral(alpha, 2), G_alpha / (2.0 * alpha))
         assert m.isclose(
-            PrimitiveGaussian.integral(alpha, 4), G_alpha * 3.0 / (2.0 * alpha) ** 2.0
+            integral(alpha, 4), G_alpha * 3.0 / (2.0 * alpha) ** 2.0
         )
 
     def test_normalization_constant(self):
@@ -55,7 +56,7 @@ class TestPrimitiveGaussian:
 
         # for 1s orbitals
         assert m.isclose(
-            PrimitiveGaussian.normalization_constant(alpha, 0, 0, 0),
+            normalization_constant(alpha, 0, 0, 0),
             (2.0 * alpha / pi) ** 0.75,
         )
 
@@ -65,14 +66,14 @@ class TestPrimitiveGaussian:
                 for ez in [0, 1]:
                     # squared norm
                     norm2 = (
-                        PrimitiveGaussian.normalization_constant(alpha, ex, ey, ez)
+                        normalization_constant(alpha, ex, ey, ez)
                         ** 2.0
                     )
 
                     # squared integral
-                    int_x = PrimitiveGaussian.integral(2.0 * alpha, 2 * ex)
-                    int_y = PrimitiveGaussian.integral(2.0 * alpha, 2 * ey)
-                    int_z = PrimitiveGaussian.integral(2.0 * alpha, 2 * ez)
+                    int_x = integral(2.0 * alpha, 2 * ex)
+                    int_y = integral(2.0 * alpha, 2 * ey)
+                    int_z = integral(2.0 * alpha, 2 * ez)
                     int2 = int_x * int_y * int_z
                     assert m.isclose(1.0, norm2 * int2)
 
@@ -119,4 +120,12 @@ class TestPrimitiveGaussian:
             * boys(p * Q2)
         )
 
+        t1 = time.time()
         assert m.isclose(PG1_1s.electron_electron_int(PG2_1s, PG3_1s, PG4_1s), I_int, abs_tol=1e-8)
+        t2 = time.time()
+        print(t2-t1)
+
+        t1 = time.time()
+        assert m.isclose(PG1_1s.electron_electron_int(PG2_1s, PG3_1s, PG4_1s), I_int, abs_tol=1e-8)
+        t2 = time.time()
+        print(t2-t1)
