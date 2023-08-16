@@ -5,8 +5,8 @@ from abc import ABC, abstractmethod
 class BasisFunction(ABC):
     """parent class for every basis functions"""
 
-    def __init__(self):
-        self.atom_position = None
+    def __init__(self, atom_position=None):
+        self.atom_position = atom_position
 
     @abstractmethod
     def overlap_int(self, basis2):
