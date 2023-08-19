@@ -2,10 +2,10 @@
 import copy as cp
 import math as m
 import numpy as np
-from numba import jit, njit
+from numba import jit, prange
 
 from qmodelling.basis.basis_function import BasisFunction
-from qmodelling.integral.quadrature import get_quadrature_points
+from qmodelling.integral.primitive_gaussian_quadrature import Chebyshev_quadrature_points_01, Chebyshev_abscissa_3d, Chebyshev_weights_3d
 
 pi = np.pi
 
@@ -153,6 +153,7 @@ class PrimitiveGaussian(BasisFunction):
 ##################################
 # QUADRATURE PTS
 ##################################
+"""
 nquad = 30
 
 # pts on [-1,1]
@@ -172,20 +173,23 @@ Chebyshev_quadrature_points_01[:, 0] /= 2.0
 weights_1d = Chebyshev_quadrature_points[:, 0]
 weights_3d = np.meshgrid(weights_1d, weights_1d, weights_1d, indexing="ij")
 
-weights_3d = (weights_3d[0] * weights_3d[1] * weights_3d[2]).flatten("A")
+Chebyshev_weights_3d = (weights_3d[0] * weights_3d[1] * weights_3d[2]).flatten("A")
 
 abscissa_1d = Chebyshev_quadrature_points[:, 1]
 abscissa_3d = np.meshgrid(abscissa_1d, abscissa_1d, abscissa_1d, indexing="ij")
-abscissa_3d = np.stack([p.flatten("A") for p in abscissa_3d], axis=1).reshape(-1, 1, 3)
+Chebyshev_abscissa_3d = np.stack([p.flatten("A") for p in abscissa_3d], axis=1).reshape(-1, 1, 3)
 
 del weights_1d
+del weights_3d
 del abscissa_1d
+del abscissa_3d
+"""
 
 
 ##################################
 # Numba : function to be compiled just in time (JIT)
 ##################################
-@jit("float64(float64, int64)")
+@jit("float64(float64, int64)",cache=True)
 def integral(alpha: float, n: int):
     """integral over R of x^n exp(-alpha x^2)"""
     # odd exponent
@@ -198,7 +202,7 @@ def integral(alpha: float, n: int):
     return m.sqrt(pi / alpha) / (2.0 * alpha) ** nn * np.prod(2.0 * np.arange(nn) + 1)
 
 
-@jit
+@jit(cache=True)
 def normalization_constant(alpha, ex, ey, ez):
     """computing the normalisation constant of the primitive Gaussian"""
 
@@ -214,7 +218,7 @@ def normalization_constant(alpha, ex, ey, ez):
     return 1.0 / m.sqrt(int_x * int_y * int_z)
 
 
-@njit
+@jit(cache=True)
 def custom_comb(n, k):
     if k > n - k:
         k = n - k
@@ -225,7 +229,7 @@ def custom_comb(n, k):
     return result
 
 
-@jit
+@jit(cache=True)
 def overlap_int_coo(X1, X2, a1, a2, E1, E2, coo):
     """overlap integral comouted with the Binomial theorem for each coordinate
     coo (int) : coordinate index to integrate over (x:0, y:1, z:2)
@@ -250,7 +254,7 @@ def overlap_int_coo(X1, X2, a1, a2, E1, E2, coo):
     return I
 
 
-@jit
+@jit(cache=True)
 def kinetic_int_coo(X1, X2, a1, a2, E1, E2, coo):
     """kinetic integral comouted with the Binomial theorem for each coordinate
     coo (int) : coordinate index to integrate over (x:0, y:1, z:2)
@@ -281,8 +285,7 @@ def kinetic_int_coo(X1, X2, a1, a2, E1, E2, coo):
     return I1 * I2 * I3
 
 
-#"""
-@jit
+@jit(parallel=True, cache=True)
 def electron_electron_int_jit(
     a1,
     X1,
@@ -319,7 +322,7 @@ def electron_electron_int_jit(
     # quadrature loop over Gauss transformation integration variable: t
     # for wkt, tk in Chebyshev_quadrature_points_01:
     nk = len(Chebyshev_quadrature_points_01)
-    nk2 = len(weights_3d)
+    nk2 = len(Chebyshev_weights_3d)
 
     for k in range(nk):
         wkt, tk = Chebyshev_quadrature_points_01[k]
@@ -332,10 +335,9 @@ def electron_electron_int_jit(
         )
 
         # quadrature loop over coordinates R2 = (x2 y2 z2)
-        # for wk2, r2 in weights_abscissa_3d:
-        for k2 in range(nk2):
-            wk2 = weights_3d[k2]
-            r2 = abscissa_3d[k2]
+        for k2 in prange(nk2):
+            wk2 = Chebyshev_weights_3d[k2]
+            r2  = Chebyshev_abscissa_3d[k2]
 
             R2 = np.arctanh(r2)
             I_tmp_R1 = 1.0
@@ -368,51 +370,3 @@ def electron_electron_int_jit(
         I += wkt / (1.0 - tk2) ** (3.0 / 2.0) * m.exp(-p * tk2 * X12_34) * I_tmp_t
 
     return 2.0 * AA * E12 * E34 * m.sqrt(p / pi) * I
-#"""
-
-"""
-@jit
-def electron_electron_int_jit(
-    a1,
-    X1,
-    E1,
-    A1,
-    a2,
-    X2,
-    E2,
-    A2,
-    a3,
-    X3,
-    E3,
-    A3,
-    a4,
-    X4,
-    E4,
-    A4,
-):
-    AA = A1 * A2 * A3 * A4
-
-    a1p2 = a1 + a2
-    a3p4 = a3 + a4
-    p = a1p2 * a3p4 / (a1p2 + a3p4)
-
-    E12 = m.exp(-a1 * a2 / a1p2 * np.linalg.norm(X1 - X2) ** 2.0)
-    E34 = m.exp(-a3 * a4 / a3p4 * np.linalg.norm(X3 - X4) ** 2.0)
-
-    X12 = (a1 * X1 + a2 * X2) / (a1p2)
-    X34 = (a3 * X3 + a4 * X4) / (a3p4)
-    X12_34 = np.linalg.norm(X12 - X34) ** 2.0
-
-    I = 0.0
-
-    # quadrature loop over Gauss transformation integration variable: t
-    # for wkt, tk in Chebyshev_quadrature_points_01:
-    nk, _ = Chebyshev_quadrature_points_01.shape
-    nk2 = len(weights_abscissa_3d)
-
-    I = 0
-    for k in range(nk):
-        I += k
-
-    return I
-#"""
