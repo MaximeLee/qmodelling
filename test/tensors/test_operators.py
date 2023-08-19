@@ -1,8 +1,8 @@
 import numpy as np
-from qmodelling.operators.overlap import *
-from qmodelling.operators.kinetic import *
-from qmodelling.operators.electron_electron import *
-from qmodelling.operators.electron_proton import *
+from qmodelling.tensors.overlap import *
+from qmodelling.tensors.kinetic import *
+from qmodelling.tensors.electron_electron import *
+from qmodelling.tensors.electron_proton import *
 from qmodelling.molecule import Molecule
 from qmodelling.utils import get_atomic_orbitals
 
@@ -36,9 +36,8 @@ class TestOperatorsH2:
 
         assert np.all(np.diag(abs_elec_prot)>=abs_elec_prot)
 
-    """
     def test_coulomb(self):
         coulomb = electron_electron_matrix(self.CPG)
         assert np.all(coulomb.T==coulomb)
         assert np.all(coulomb>0.0)
-    #"""
+
