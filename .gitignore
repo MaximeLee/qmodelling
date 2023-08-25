@@ -1,5 +1,6 @@
 docs
+env
+build
 qmodelling-env
-qmodelling/func/__pycache__
-qmodelling/__pycache__
-test/__pycache__
+**/__pycache__
+examples
