@@ -3,4 +3,7 @@ env
 build
 qmodelling-env
 **/__pycache__
+**/*.c
+**/*.html
+**/*.so
 examples

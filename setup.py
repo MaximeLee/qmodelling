@@ -7,7 +7,7 @@ import numpy
 cython_files = []
 for root, _, files in os.walk('qmodelling'):
     for file in files:
-        if file.endswith(".pyx") or file.endswith(".pxd"):
+        if file.endswith(".pyx"):
             cython_files.append(os.path.join(root, file))
 
 setup(
