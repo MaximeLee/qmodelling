@@ -1,4 +1,4 @@
-from qmodelling.basis.primitive_gaussian import PrimitiveGaussian, gaussian_integral
+from qmodelling.basis.primitive_gaussian import PrimitiveGaussian, gaussian_integral, integrate_3d
 import numpy as np
 import time
 from config import *
@@ -54,3 +54,12 @@ class TestPrimitiveGaussian1s:
         assert isclose(PrimitiveGaussian.electron_electron_int(PG, PG2, PG3, PG4), I_int)
         t2 = time.time()
         print(f't = {t2-t1} s')
+
+    def test_integrate_3d_unit_cube_volume(self):
+        I = integrate_3d(lambda x : 1.0)
+        assert isclose(I, 8)
+
+    def test_integrate_3d_test_1(self):
+        I = integrate_3d(lambda x : x[0])
+        assert isclose(I, 0.0)
+

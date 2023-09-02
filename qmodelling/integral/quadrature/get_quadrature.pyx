@@ -4,9 +4,9 @@ import warnings
 import numpy as np
 cimport numpy as cnp
 
-from qmodelling.constants cimport pi
+from qmodelling.constants cimport pi, dtype
 
-cpdef cnp.ndarray get_quadrature_points(n, quadrature_type="gauss_chebyshev_2"):
+cpdef cnp.ndarray[dtype, ndim=2] get_quadrature_points(n, quadrature_type="gauss_chebyshev_2"):
     """quadrature points :
     - first column : weights
     - second and next columns : abscissa on the interval/domain

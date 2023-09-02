@@ -17,17 +17,17 @@ def boys(x):
 pi = np.pi
 isclose = np.isclose
 
-R = np.random.uniform(size=[1,3])
+R = np.random.uniform(size=[3])
 
 # PG 1
 a1 = 0.6
-X1 = np.random.uniform(size=[1,3])
+X1 = np.random.uniform(size=[3])
 PG = PrimitiveGaussian(a1, X1, 0, 0, 0)
 A1 = PG.normalization_constant()
 
 # PG 2
 a2 = 1.0
-X2 = np.random.uniform(size=[1,3])
+X2 = np.random.uniform(size=[3])
 PG2 = PrimitiveGaussian(a2, X2, 0, 0, 0)
 A2 = PG2.normalization_constant()
 
@@ -39,13 +39,13 @@ Ea12 = np.exp(-a1*a2/a1p2 * np.linalg.norm(X1-X2)**2)
 
 # PG 3
 a3 = 1.0
-X3 = np.random.uniform(size=[1,3])
+X3 = np.random.uniform(size=[3])
 PG3 = PrimitiveGaussian(a3, X3, 0, 0, 0)
 A3 = PG3.normalization_constant()
 
 # PG 4
 a4 = 1.0
-X4 = np.random.uniform(size=[1,3])
+X4 = np.random.uniform(size=[3])
 PG4 = PrimitiveGaussian(a4, X4, 0, 0, 0)
 A4 = PG4.normalization_constant()
 
