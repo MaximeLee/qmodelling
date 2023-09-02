@@ -1,11 +1,8 @@
 from setuptools import setup, find_namespace_packages, find_packages
 import os
+from Cython.Build import cythonize
+import numpy
 
-setup()
-
-"""
-#from Cython.Build import cythonize
-#import numpy
 # Recursively find all pyx/pxd files
 cython_files = []
 for root, _, files in os.walk('qmodelling'):
@@ -18,7 +15,6 @@ setup(
     include_dirs=[numpy.get_include()],
     script_args=['build_ext', '--inplace']
 )
-"""
 #setup(
 #    ext_modules=cythonize(pyx_files),  # Compile all .pyx files in all discovered packages
 #    include_dirs=[numpy.get_include()],
