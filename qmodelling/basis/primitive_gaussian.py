@@ -3,13 +3,21 @@ import copy as cp
 import math as m
 import numpy as np
 from numba import jit, prange
+from numba.experimental import jitclass
 
 from qmodelling.integral.primitive_gaussian_quadrature import Chebyshev_quadrature_points_01, Chebyshev_abscissa_3d, Chebyshev_weights_3d
+from qmodelling.constants import pi
+from qmodelling.config import dtype_real, dtype_int, dtype_int_numba, dtype_real_numba
 
-pi = np.pi
+spec = [
+    ('atom_position', dtype_real_numba[:, :]),
+    ('alpha', dtype_real_numba), 
+    ('angular_exponents', dtype_int_numba[:]), 
+    ('A', dtype_real_numba), 
+]
 
-
-class PrimitiveGaussian():
+#@jitclass(spec)
+class PrimitiveGaussian:
     """Primitive Gaussian class
 
     only considering 1s orbital atm
@@ -26,7 +34,7 @@ class PrimitiveGaussian():
         self.alpha = alpha
 
         # exponents of the angular momentum
-        self.angular_exponents = np.array([ex, ey, ez])
+        self.angular_exponents = np.array([ex, ey, ez], dtype = dtype_int)
 
         # normalizing constant
         self.A = normalization_constant(alpha, ex, ey, ez)
@@ -147,42 +155,6 @@ class PrimitiveGaussian():
             E4,
             A4,
         )
-
-
-##################################
-# QUADRATURE PTS
-##################################
-"""
-nquad = 30
-
-# pts on [-1,1]
-Chebyshev_quadrature_points = get_quadrature_points(
-    n=nquad, quadrature_type="gauss_chebyshev_2"
-)
-
-# pts on [0,1]
-Chebyshev_quadrature_points_01 = cp.deepcopy(Chebyshev_quadrature_points)
-Chebyshev_quadrature_points_01[:, 1] = (
-    Chebyshev_quadrature_points_01[:, 1] + 1.0
-) / 2.0
-# sum weights = 1
-Chebyshev_quadrature_points_01[:, 0] /= 2.0
-
-# Generating points for R³ integration with variable substitution on [-1,1]³
-weights_1d = Chebyshev_quadrature_points[:, 0]
-weights_3d = np.meshgrid(weights_1d, weights_1d, weights_1d, indexing="ij")
-
-Chebyshev_weights_3d = (weights_3d[0] * weights_3d[1] * weights_3d[2]).flatten("A")
-
-abscissa_1d = Chebyshev_quadrature_points[:, 1]
-abscissa_3d = np.meshgrid(abscissa_1d, abscissa_1d, abscissa_1d, indexing="ij")
-Chebyshev_abscissa_3d = np.stack([p.flatten("A") for p in abscissa_3d], axis=1).reshape(-1, 1, 3)
-
-del weights_1d
-del weights_3d
-del abscissa_1d
-del abscissa_3d
-"""
 
 
 ##################################
@@ -334,7 +306,7 @@ def electron_electron_int_jit(
         )
 
         # quadrature loop over coordinates R2 = (x2 y2 z2)
-        for k2 in prange(nk2):
+        for k2 in range(nk2):
             wk2 = Chebyshev_weights_3d[k2]
             r2  = Chebyshev_abscissa_3d[k2]
 
