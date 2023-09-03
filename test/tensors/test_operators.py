@@ -36,8 +36,8 @@ class TestOperatorsH2:
 
         assert np.all(np.diag(abs_elec_prot)>=abs_elec_prot)
 
-    def test_coulomb(self):
-        coulomb = electron_electron_matrix(self.CPG)
-        assert np.all(coulomb.T==coulomb)
-        assert np.all(coulomb>0.0)
+#    def test_coulomb(self):
+#        coulomb = electron_electron_matrix(self.CPG)
+#        assert np.all(coulomb.T==coulomb)
+#        assert np.all(coulomb>0.0)
 

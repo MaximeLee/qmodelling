@@ -4,13 +4,12 @@ import math as m
 import numpy as np
 from numba import jit, prange
 
-from qmodelling.basis.basis_function import BasisFunction
 from qmodelling.integral.primitive_gaussian_quadrature import Chebyshev_quadrature_points_01, Chebyshev_abscissa_3d, Chebyshev_weights_3d
 
 pi = np.pi
 
 
-class PrimitiveGaussian(BasisFunction):
+class PrimitiveGaussian():
     """Primitive Gaussian class
 
     only considering 1s orbital atm
@@ -21,7 +20,7 @@ class PrimitiveGaussian(BasisFunction):
     """
 
     def __init__(self, alpha, atom_position=None, ex=0, ey=0, ez=0):
-        super().__init__(atom_position)
+        self.atom_position = atom_position
 
         # Gaussian parameters
         self.alpha = alpha
