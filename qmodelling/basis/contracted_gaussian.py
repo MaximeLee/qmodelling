@@ -1,6 +1,7 @@
 """Contracted Gaussian module"""
 import numpy as np
-from qmodelling.basis.primitive_gaussian import PrimitiveGaussian
+from qmodelling.basis.primitive_gaussian import PrimitiveGaussian as PG
+from qmodelling.config import dtype_real, dtype_int, dtype_int_numba, dtype_real_numba
 
 class ContractedGaussian:
 

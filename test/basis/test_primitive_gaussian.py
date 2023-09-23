@@ -123,9 +123,12 @@ class TestPrimitiveGaussian:
         t1 = time.time()
         assert np.isclose(PG1_1s.electron_electron_int(PG2_1s, PG3_1s, PG4_1s), I_int)
         t2 = time.time()
-        print(t2-t1)
+        dt1 = t2 - t1
 
         t1 = time.time()
         assert np.isclose(PG1_1s.electron_electron_int(PG2_1s, PG3_1s, PG4_1s), I_int)
         t2 = time.time()
-        print(t2-t1)
+        dt2 = t2 - t1
+
+        assert dt2>dt1
+

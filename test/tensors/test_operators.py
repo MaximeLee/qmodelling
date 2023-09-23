@@ -1,4 +1,5 @@
 import numpy as np
+import time
 from qmodelling.tensors.overlap import *
 from qmodelling.tensors.kinetic import *
 from qmodelling.tensors.electron_electron import *
@@ -36,8 +37,21 @@ class TestOperatorsH2:
 
         assert np.all(np.diag(abs_elec_prot)>=abs_elec_prot)
 
-#    def test_coulomb(self):
-#        coulomb = electron_electron_matrix(self.CPG)
-#        assert np.all(coulomb.T==coulomb)
-#        assert np.all(coulomb>0.0)
+    def test_coulomb(self):
+        t1 = time.time()
+        coulomb = electron_electron_matrix(self.CPG, nb=1)
+        t2 = time.time()
+        dt1 = t2 - t1
 
+        assert np.all(np.isclose(coulomb.T, coulomb, atol=1e-6))
+        assert np.all(coulomb>0.0)
+
+        t1 = time.time()
+        coulomb = electron_electron_matrix(self.CPG, nb=1)
+        t2 = time.time()
+        dt2 = t2 - t1
+
+        assert np.all(np.isclose(coulomb.T, coulomb, atol=1e-6))
+        assert np.all(coulomb>0.0)
+
+        assert dt2>dt1

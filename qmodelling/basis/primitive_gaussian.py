@@ -16,7 +16,7 @@ spec = [
     ('A', dtype_real_numba), 
 ]
 
-#@jitclass(spec)
+@jitclass(spec)
 class PrimitiveGaussian:
     """Primitive Gaussian class
 
@@ -55,7 +55,8 @@ class PrimitiveGaussian:
             self.A,
         )
 
-    def __call__(self, x):
+    #def __call__(self, x):
+    def call(self, x):
         """forward method needed for integral quadrature"""
         dxx2 = np.sum((x - self.atom_position) ** 2, axis=1, keepdims=True)
         return (
@@ -256,7 +257,8 @@ def kinetic_int_coo(X1, X2, a1, a2, E1, E2, coo):
     return I1 * I2 * I3
 
 
-@jit(parallel=True, cache=True)
+#@jit(parallel=True, cache=True)
+@jit(cache=True, nopython=True, nogil=True)
 def electron_electron_int_jit(
     a1,
     X1,
@@ -306,6 +308,7 @@ def electron_electron_int_jit(
         )
 
         # quadrature loop over coordinates R2 = (x2 y2 z2)
+        #for k2 in prange(nk2):
         for k2 in range(nk2):
             wk2 = Chebyshev_weights_3d[k2]
             r2  = Chebyshev_abscissa_3d[k2]
