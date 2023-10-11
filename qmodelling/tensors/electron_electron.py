@@ -49,18 +49,16 @@ def electron_electron_matrix(CPG_list: List[ContractedGaussian]):
     return coulomb
 
 @jit
-def exchange(Vee, P):
-    Vex = np.einsum("kl,iklj->ij", P, Vee)
-    return -0.5*Vex
-
-@jit
 def Coulomb(Vee, P):
     """Coulomb interaction
 
     Vee : for electron integrals in AO basis
     P   : density matrix
     """
-    #Vcoulomb = np.einsum("ijkl,kl->ij", Vee, P)
     Vcoulomb = np.einsum("kl,ijlk->ij", P, Vee)
     return Vcoulomb
 
+@jit
+def exchange(Vee, P):
+    Vex = np.einsum("kl,iklj->ij", P, Vee)
+    return -0.5*Vex
